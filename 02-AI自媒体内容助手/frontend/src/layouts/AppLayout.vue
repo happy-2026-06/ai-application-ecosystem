@@ -59,7 +59,7 @@ const navItems = computed(() => {
     { key: 'studio', icon: '✍️', label: '创作' },
   ]
   if (authStore.isAdmin) {
-    items.push({ key: 'admin', icon: '📚', label: '知识库' })
+    items.push({ key: 'admin', icon: '📚', label: '管理' })
   }
   return items
 })

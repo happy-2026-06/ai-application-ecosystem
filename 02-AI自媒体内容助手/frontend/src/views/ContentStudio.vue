@@ -275,7 +275,7 @@ function handleRegenerate() { resultContent.value = ''; streamingContent.value =
 
 onUnmounted(() => { if (hintTimer) clearInterval(hintTimer) })
 
-onMounted(() => {
+onMounted(async () => {
   // Handle template from query params (from dashboard quick start / templates)
   const template = route.query.template as string | undefined
   if (template) {
@@ -285,6 +285,24 @@ onMounted(() => {
     if (platformsQuery) {
       selectedPlatforms.value = platformsQuery.split(',').filter(p => platforms.some(pl => pl.value === p))
     }
+  }
+  // Handle sessionId from route params (from Dashboard "recent sessions")
+  const sessionId = route.params.sessionId as string | undefined
+  if (sessionId) {
+    try {
+      const { chatApi } = await import('../api/chat')
+      const msgs = await chatApi.getMessages(sessionId)
+      if (msgs.data && msgs.data.length > 0) {
+        // Find user's first question as input
+        const userMsg = msgs.data.find((m: any) => m.role === 'user')
+        if (userMsg) inputText.value = userMsg.content
+        // Show last assistant answer as result
+        const assistantMsgs = msgs.data.filter((m: any) => m.role === 'assistant')
+        if (assistantMsgs.length > 0) {
+          resultContent.value = assistantMsgs[assistantMsgs.length - 1].content
+        }
+      }
+    } catch { /* silently fail, show empty */ }
   }
 })
 </script>

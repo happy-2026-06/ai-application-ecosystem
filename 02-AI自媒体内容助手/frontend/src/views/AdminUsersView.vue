@@ -23,5 +23,6 @@ onMounted(load)
 .atop { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
 .atop h2 { margin:0; font-size:22px; color: #1A0F2E; }
 
+[data-theme="dark"] .apage { background: #0F0A14; }
 [data-theme="dark"] .atop h2 { color: #eee; }
 </style>

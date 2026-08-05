@@ -132,6 +132,14 @@ async function handleSend() {
 
 async function escalateToHuman() {
   if (!currentId.value) return
+  try {
+    const { default: apiClient } = await import('../api/client')
+    await apiClient.post('/chat/escalate', { session_id: currentId.value })
+    message.success('已转接人工客服，工单已生成')
+  } catch {
+    message.error('转接失败，请稍后重试')
+    return
+  }
   chatStore.messages.push({
     id: `escalate-${Date.now()}`,
     session_id: currentId.value,
@@ -142,7 +150,6 @@ async function escalateToHuman() {
     feedback: null,
     created_at: new Date().toISOString(),
   })
-  message.success('已转接人工客服，工单已生成')
 }
 
 function copyMsg(t: string) { navigator.clipboard.writeText(t).then(() => message.success('已复制')) }
@@ -162,7 +169,7 @@ async function submitEdit(msg: any) {
   if (!t) return
   const idx = chatStore.messages.findIndex(m => m.id === msg.id)
   if (idx >= 0) {
-    chatStore.messages.splice(idx)
+    chatStore.messages.splice(idx, 1)
     inputText.value = t; editingId.value = null
     await nextTick(); handleSend()
   }
@@ -191,8 +198,12 @@ async function quickStart(q: string) {
 
 watch(() => route.params.sessionId, async id => {
   if (id && typeof id === 'string') {
+    chatStore.messages = []
     const s = chatStore.sessions.find(x => x.id === id)
     if (s) { chatStore.currentSession = s; await chatStore.loadMessages(id); nextTick(() => { if (msgContainer.value) msgContainer.value.scrollTop = msgContainer.value.scrollHeight }) }
+  } else {
+    chatStore.currentSession = null
+    chatStore.messages = []
   }
 }, { immediate: true })
 

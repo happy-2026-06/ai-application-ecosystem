@@ -68,16 +68,8 @@
             <span class="stat-label">本月生成</span>
           </div>
           <div class="stat-item">
-            <span class="stat-num">{{ stats.totalTitles }}</span>
-            <span class="stat-label">标题数</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-num">{{ stats.totalScripts }}</span>
-            <span class="stat-label">脚本数</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-num">{{ stats.totalCopy }}</span>
-            <span class="stat-label">文案数</span>
+            <span class="stat-num">{{ chatStore.sessions.length }}</span>
+            <span class="stat-label">总会话数</span>
           </div>
         </div>
       </div>
@@ -214,10 +206,9 @@ function computeStats() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
   stats.value.totalGenerations = thisMonth.length
-  // Estimate content type stats from sessions this month
-  stats.value.totalTitles = thisMonth.length > 0 ? Math.max(1, Math.round(thisMonth.length * 0.9)) : 0
-  stats.value.totalScripts = thisMonth.length > 0 ? Math.max(1, Math.round(thisMonth.length * 0.7)) : 0
-  stats.value.totalCopy = thisMonth.length > 0 ? Math.max(1, Math.round(thisMonth.length * 0.6)) : 0
+  stats.value.totalTitles = 0  // Backend doesn't provide content-type breakdown
+  stats.value.totalScripts = 0
+  stats.value.totalCopy = 0
 }
 
 // ── Templates ──

@@ -21,6 +21,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/dashboard', name: 'AdminDashboard', component: () => import('../views/AdminDashboardView.vue'), meta: { requiresAdmin: true } },
     ],
   },
+  { path: '/:pathMatch(.*)*', redirect: '/chat' },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

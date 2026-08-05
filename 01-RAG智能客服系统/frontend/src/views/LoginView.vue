@@ -108,4 +108,10 @@ async function handleLogin(){
 
 [data-theme="dark"] .login-right { background:#18181D; }
 [data-theme="dark"] .form-card h2 { color:#eee; }
+[data-theme="dark"] .form-sub { color: #aaa; }
+[data-theme="dark"] .form-extra { color: #aaa; }
+[data-theme="dark"] .feat { color: #94A3B8; background: rgba(255,255,255,.06); }
+[data-theme="dark"] .feat:hover { background: rgba(255,255,255,.1); }
+[data-theme="dark"] .left-footer { color: #64748B; }
+[data-theme="dark"] .logo-area p { color: #94A3B8; }
 </style>

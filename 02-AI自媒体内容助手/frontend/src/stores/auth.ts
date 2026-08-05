@@ -90,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 }, {
   persist: {
-    key: 'rag-auth',
+    key: 'creator-auth',
     storage: localStorage,
     pick: ['token', 'refreshToken', 'user', 'isDarkMode', 'avatar'],
   },
