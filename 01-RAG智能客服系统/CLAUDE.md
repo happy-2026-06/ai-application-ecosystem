@@ -19,19 +19,35 @@
 - `sample-data/` → 客服FAQ + 退货政策表
 - `frontend/src/views/ChatView.vue` → 聊天界面（含🎧转人工按钮）
 
+## 页面布局
+- **三栏客服台**：侧边栏(200px) + 会话列表(260px) + 聊天区(flex)
+- 侧边栏顶部3个统计卡片（今日会话/满意率/在线）
+- 导航：对话 → 知识库管理 → 设置 → 暗色切换 → 退出
+- 聊天区：欢迎页 + AI气泡 + 消息编辑/删除 + 转人工
+
+## 设计风格
+- 主色 `#2563EB` 专业蓝，侧边栏 `#0F172A→#1E293B` 深蓝渐变
+- 用户气泡 `#2563EB→#7C3AED` 蓝紫渐变，AI气泡 `#F1F5F9` 浅灰
+- 字体 Inter + PingFang SC，body 15px
+- 暗色模式：主背景 `#0F172A`，卡片 `#18181D`
+
+## 端口
+- 后端: `8101` (API文档 http://localhost:8101/docs)
+- 前端: `3001` (页面 http://localhost:3001)
+
 ## 已完成的优化
 1. AI客服模式：Prompt改为热情/专业/有同理心的客服语气
 2. 客服知识库：电商客服FAQ + 退货政策表
-3. 🎧转人工按钮：输入框旁一键生成工单+客服电话
-4. 暗色模式：NaiveUI主题切换，CSS变量全覆盖
+3. 🎧转人工按钮：调用 `POST /api/chat/escalate` 生成工单+客服电话
+4. 暗色模式：NaiveUI主题切换 + `[data-theme="dark"]` CSS全覆盖
 5. SQLite WAL模式：5项PRAGMA优化（WAL/NORMAL/cache/busy_timeout/foreign_keys）
 6. 三阶段性能对比：SQLite标准(62%失败) → WAL(30%) → PostgreSQL(6%)
 7. 50人并发Locust压测脚本 + 100个测试用户自动生成
 8. MOCK_LLM环境变量：跳过DeepSeek API（省钱+压测用）
-9. Claude Code hooks：SessionStart检查环境 + Stop提醒存档
-10. 权限白名单：git/npm/python等11条常用命令免弹窗
-11. 公网隧道：serveo SSH远程访问
-12. 转人工API：POST /api/chat/escalate 工单队列
+9. 三栏客服台布局：侧边统计 + 会话列表 + 聊天区
+10. ChatView完善：返回首页清除会话、切换防闪烁、编辑只删单条
+11. 404捕获路由 + LoginView完整暗色模式
+12. 端口独立 (8101)：与项目②-⑧互不冲突
 
 ## 默认账号
 admin / 123456
