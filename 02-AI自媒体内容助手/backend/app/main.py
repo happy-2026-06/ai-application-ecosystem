@@ -1,12 +1,21 @@
 """FastAPI application entry point."""
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.api import api_router
+
+# ── Rate limiter ──────────────────────────────────────────────────────
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[f"{settings.RATE_LIMIT_PER_MINUTE}/minute"],
+)
 
 
 # API docs are enabled by default in dev; set ENABLE_DOCS=false to disable in prod
@@ -71,6 +80,10 @@ app.add_middleware(
 
 # GZip compression
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

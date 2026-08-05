@@ -18,12 +18,12 @@
 |---|------|
 | **后端框架** | FastAPI (异步) + SQLAlchemy 2.0 |
 | **前端** | Vue 3 + TypeScript + Naive UI |
-| **AI 框架** | LangChain + LangGraph |
+| **AI 框架** | LangChain |
 | **LLM** | DeepSeek API (deepseek-chat) |
 | **Embedding** | BGE-M3 (Ollama 本地) |
 | **向量数据库** | ChromaDB |
-| **图数据库** | Neo4j (GraphRAG) |
-| **关系数据库** | PostgreSQL |
+| **图数据库** | Neo4j (GraphRAG — Phase 4 存根) |
+| **关系数据库** | SQLite (开发) / PostgreSQL (生产) |
 | **缓存** | Redis |
 | **部署** | Docker Compose |
 
@@ -52,8 +52,8 @@ docker-compose up -d
 docker-compose exec ollama ollama pull bge-m3
 
 # 5. 访问系统
-# 前端: http://localhost:3000
-# API 文档: http://localhost:8000/api/docs
+# 前端: http://localhost:3001
+# API 文档: http://localhost:8101/api/docs
 ```
 
 ### 本地开发
@@ -62,7 +62,7 @@ docker-compose exec ollama ollama pull bge-m3
 # 后端
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8101
 
 # 前端
 cd frontend
@@ -75,11 +75,20 @@ docker-compose up -d postgres redis chromadb neo4j ollama
 
 ### 默认账号
 
-| 角色 | 用户名 | 密码 |
-|------|--------|------|
-| 管理员 | admin | 123456 |
+> ⚠️ 首次启动后系统会自动创建管理员账号，用户名 `admin`，密码请查看 `.env` 文件中的 `ADMIN_PASSWORD` 配置项。请登录后立即修改密码。
 
 ## 📁 项目结构
+- ✅ AI客服模式（热情/专业/同理心 Prompt）
+- ✅ SSE 流式问答 + 引用溯源
+- ✅ 知识库管理（文档上传/解析/向量化）
+- ✅ 多用户多会话 + 历史持久化
+- ✅ 用户认证（JWT）+ 角色权限
+- ✅ 管理后台 + 仪表盘统计
+- ✅ 转人工客服（内存工单队列）
+- ✅ 暗色模式 + 三栏客服台布局
+- ✅ 50人并发 Locust 压测通过
+- ⚠️ GraphRAG（Neo4j 知识图谱）为 Phase 4 存根，尚未实现
+- ⚠️ BM25 混合检索为存根，当前仅用向量检索
 
 ```
 langchain-rag-system/

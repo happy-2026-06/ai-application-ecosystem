@@ -18,17 +18,17 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
-        default="dev-secret-change-me-in-production",
+        default="sm-creator-dev-secret-must-override-in-prod-7b2e",
         description="Used by FastAPI/Starlette for session signing. Override in production!",
     )
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./data/rag_system.db",
+        default="sqlite+aiosqlite:///./data/selfmedia.db",
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="sqlite:///./data/rag_system.db",
+        default="sqlite:///./data/selfmedia.db",
         description="Synchronous database URL (for Alembic migrations)",
     )
 
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
 
     # ── JWT ──────────────────────────────────────────────────────────
     JWT_SECRET_KEY: str = Field(
-        default="jwt-dev-secret-change-me-in-production",
+        default="sm-creator-jwt-dev-key-must-override-in-prod-9e1a",
         description="JWT signing key. MUST be a long random string in production!",
     )
     JWT_ALGORITHM: str = "HS256"
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # ── Pre-seeded admin account ─────────────────────────────────────
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = Field(
-        default="admin123",
+        default="SM-creator-admin-2024!",
         description="Initial admin password. CHANGE IT after first login!",
     )
     ADMIN_EMAIL: str = "admin@rag-system.local"
@@ -116,21 +116,23 @@ class Settings(BaseSettings):
         return f"http://{self.CHROMA_HOST}:{self.CHROMA_PORT}"
 
     # ── Security Warnings (development defaults) ─────────────────────
-    _warned: bool = False
 
     @field_validator("SECRET_KEY", "JWT_SECRET_KEY", "ADMIN_PASSWORD",
                      "NEO4J_PASSWORD", mode="after")
     @classmethod
     def _warn_dev_defaults(cls, v: str, info) -> str:
-        """Warn once if any secret uses its development default."""
-        if Settings._warned:
+        """Warn once per field if it uses its development default."""
+        if not hasattr(cls, '__warned_fields'):
+            cls.__warned_fields = set()
+        field_name = info.field_name
+        if field_name in cls.__warned_fields:
             return v
         dev_markers = ("change-me", "dev-secret", "dev-password", "admin123",
-                       "neo4j-dev", "jwt-dev")
+                       "neo4j-dev", "jwt-dev", "must-override", "SM-creator")
         if any(marker in v for marker in dev_markers):
-            Settings._warned = True
+            cls.__warned_fields.add(field_name)
             warnings.warn(
-                f"⚠️  [{info.field_name}] 使用了开发环境默认值！"
+                f"⚠️  [{field_name}] 使用了开发环境默认值！"
                 f"生产环境请务必通过环境变量或 .env 文件覆盖。",
                 RuntimeWarning,
                 stacklevel=2,

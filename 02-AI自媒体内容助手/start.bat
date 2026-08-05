@@ -9,41 +9,82 @@ echo     AI自媒体内容助手 v1.0
 echo ========================================
 echo.
 
+:: ── 环境检查 ──────────────────────────────────
 where python >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 未找到 Python
+    echo [X] 未找到 Python, 请先安装
     pause & exit /b 1
 )
 echo [OK] Python
 
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [错误] 未找到 Node.js
+    echo [X] 未找到 Node.js, 请先安装
     pause & exit /b 1
 )
 echo [OK] Node.js
 
+:: ── 清理上次异常关机的残留 ──────────────────────
 echo.
-echo [1/2] Starting backend on port 8202...
-start "P2-Backend" cmd /k "cd /d "%~dp0backend" && python -m uvicorn app.main:app --host 0.0.0.0 --port 8202 --reload"
+echo [?] 检查上次残留...
 
-echo [2/2] Starting frontend on port 3002...
-start "P2-Frontend" cmd /k "cd /d "%~dp0frontend" && npx vite --host 0.0.0.0 --port 3002"
+:: 杀掉占用端口的旧进程
+for %%P in (8202 3002) do (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%%P "') do (
+        taskkill /f /pid %%a >nul 2>&1
+    )
+)
 
+:: 删除 Python 字节码缓存
+for /d /r "%~dp0backend" %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" 2>nul
+
+:: 清理 SQLite 锁文件 + 切换为 DELETE 模式（避免关机后数据库锁死）
+python "%~dp0backend\scripts\db_cleanup.py" 2>nul
+echo [OK] 残留已清理
+
+:: ── 安装前端依赖（如果还没装）───────────────────
+if not exist "%~dp0frontend\node_modules" (
+    echo [?] 安装前端依赖...
+    cd /d "%~dp0frontend"
+    call npm install
+    cd /d "%~dp0"
+)
+
+:: ── 启动服务 ────────────────────────────────────
 echo.
-echo Waiting for backend...
+echo [1/2] 启动后端 (端口 8202)...
+start "P2-Backend" cmd /c "cd /d "%~dp0backend" && python -m uvicorn app.main:app --host 0.0.0.0 --port 8202"
+
+echo [2/2] 启动前端 (端口 3002)...
+start "P2-Frontend" cmd /c "cd /d "%~dp0frontend" && npx vite --host 0.0.0.0 --port 3002"
+
+:: ── 等待后端就绪 ────────────────────────────────
+echo.
+echo [?] 等待后端启动（最多90秒）...
+ipconfig /flushdns >nul 2>&1
+set tries=0
 :waitloop2
 timeout /t 2 >nul
-curl -s http://localhost:8202/api/health >nul 2>&1
-if errorlevel 1 goto waitloop2
+curl -s http://127.0.0.1:8202/api/health >nul 2>&1
+if %errorlevel% equ 0 goto ready2
+set /a tries+=1
+if %tries% lss 45 goto waitloop2
+echo [X] 后端启动超时！
+echo    1. 检查 backend 窗口有没有报错
+echo    2. 手动打开 http://127.0.0.1:3002 试试
+pause
+exit /b 1
 
+:ready2
 echo.
 echo ========================================
-echo   Backend:  http://localhost:8202/docs
-echo   Frontend: http://localhost:3002
-echo   Login:    admin / 123456
+echo   启动成功！
+echo   后端: http://127.0.0.1:8202/docs
+echo   前端: http://127.0.0.1:3002
 echo ========================================
 echo.
+echo [?] 如果浏览器没自动打开，手动访问 http://127.0.0.1:3002
+echo.
 
-start http://localhost:3002
-pause >nul
+start http://127.0.0.1:3002
+pause

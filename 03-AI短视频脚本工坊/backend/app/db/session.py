@@ -1,0 +1,68 @@
+"""Async SQLAlchemy database engine and session management."""
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.config import settings
+
+# Use different engine args for SQLite vs PostgreSQL
+_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+_engine_kwargs = {
+    "echo": settings.DEBUG,
+}
+if not _is_sqlite:
+    _engine_kwargs.update({
+        "pool_size": 20,
+        "max_overflow": 40,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+    })
+
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+
+# On Windows, DELETE mode is safer than WAL because:
+#   WAL creates .db-wal and .db-shm files. If the process crashes or the
+#   machine loses power, those files can persist and lock the database on
+#   next startup ("database is locked" error).
+#   DELETE mode doesn't leave lock files — after a crash the DB just works.
+if _is_sqlite:
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")      # DELETE: safe for 1-2 users
+        cursor.execute("PRAGMA synchronous=NORMAL")        # 减少 fsync 次数
+        cursor.execute("PRAGMA cache_size=-8000")          # 缓存 8MB
+        cursor.execute("PRAGMA busy_timeout=5000")         # 锁等待 5 秒
+        cursor.execute("PRAGMA foreign_keys=ON")           # 外键约束
+        cursor.close()
+
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+async def get_db() -> AsyncSession:
+    """FastAPI dependency: yields an async database session.
+
+    SSE streaming endpoints: the generator function should call db.flush()
+    within the stream (not commit). This dependency will commit after the
+    generator finishes (or roll back on error).
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def init_db() -> None:
+    """Create all tables (for development use; use Alembic in production)."""
+    from app.models.base import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

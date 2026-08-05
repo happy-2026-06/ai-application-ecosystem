@@ -1,0 +1,157 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI短视频脚本工坊 — Global Design System
+   电影级金色主题 · Cinematic Gold Theme
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS Custom Properties (Light Mode) ───────────────────────────────── */
+html {
+  --primary: #C8A951;
+  --primary-hover: #B8953A;
+  --primary-light: #F5E6C8;
+  --primary-gradient: linear-gradient(135deg, #E8C860, #C8A951, #A08030);
+
+  --bg-body: #FAF9F4;
+  --bg-card: #FFFDF8;
+  --bg-surface: #F0EEE6;
+  --bg-sidebar: #1A1A24;
+
+  --text-primary: #2C2C3A;
+  --text-secondary: #6E6E78;
+  --text-muted: #A0A0A8;
+
+  --border: #E8E4D8;
+  --border-light: #F2F0E8;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.04);
+  --shadow: 0 2px 12px rgba(0,0,0,.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.08);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+
+  /* Platform brand colors (shared across projects) */
+  --pc-douyin: #FF0050;
+  --pc-xiaohongshu: #FF2442;
+  --pc-bilibili: #FB7299;
+  --pc-shipinhao: #07C160;
+  --pc-kuaishou: #FF4906;
+}
+
+/* ── CSS Custom Properties (Dark Mode) ────────────────────────────────── */
+html[data-theme="dark"] {
+  --primary: #D4B45A;
+  --primary-hover: #C8A951;
+  --primary-light: #3A3020;
+
+  --bg-body: #0D0D14;
+  --bg-card: #1A1A25;
+  --bg-surface: #22222E;
+
+  --text-primary: #E8E8F0;
+  --text-secondary: #9999A8;
+  --text-muted: #6A6A78;
+
+  --border: #2A2A35;
+  --border-light: #22222E;
+
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.2);
+  --shadow: 0 2px 12px rgba(0,0,0,.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.5);
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans SC",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background .3s, color .3s;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #c8b880; border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: #b8a870; }
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4A4A5A; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #5A5A6A; }
+
+/* ── Typography ───────────────────────────────────────────────────────── */
+h1 { font-size: 2rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); }
+h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.35; color: var(--text-primary); }
+h3 { font-size: 1.25rem; font-weight: 600; line-height: 1.4; color: var(--text-primary); }
+h4 { font-size: 1.1rem; font-weight: 600; }
+h5 { font-size: 1rem; font-weight: 600; }
+h6 { font-size: 0.875rem; font-weight: 600; }
+
+p { margin-bottom: 0.5em; }
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color .2s;
+}
+a:hover { color: var(--primary-hover); }
+
+/* ── Utility classes ──────────────────────────────────────────────────── */
+.section-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+
+/* ── Selection ────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(200,169,81,.25);
+  color: var(--text-primary);
+}
+
+/* ── Focus ring ───────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ── Code ─────────────────────────────────────────────────────────────── */
+code {
+  font-family: "Cascadia Code", "Fira Code", Consolas, "Courier New", monospace;
+  font-size: 0.875em;
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+pre {
+  background: #1A1A24;
+  color: #e0d0c0;
+  padding: 16px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 12px 0;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 13px;
+}

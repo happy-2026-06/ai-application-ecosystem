@@ -45,6 +45,7 @@ neo4j==5.25.0
 # HTTP & Networking
 httpx==0.27.0
 aiohttp==3.10.0
+slowapi==0.1.9
 
 # Pydantic Settings
 pydantic-settings==2.5.0
