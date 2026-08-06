@@ -43,7 +43,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as any
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 跳过 auth/ 相关请求：登录失败让 LoginView 自己显示错误，不要刷新页面
+    const isAuthRequest = originalRequest.url?.startsWith('/auth/')
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       // If a refresh is already in progress, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {

@@ -41,7 +41,7 @@
         <div class="demo-hint">
           <n-divider>演示账号</n-divider>
           <n-tag type="warning" size="small">admin</n-tag>
-          <n-tag type="warning" size="small" style="margin-left:6px;">admin123</n-tag>
+          <n-tag type="warning" size="small" style="margin-left:6px;">123456</n-tag>
         </div>
       </div>
     </div>
