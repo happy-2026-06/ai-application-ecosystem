@@ -11,6 +11,7 @@
 #   项目① RAG客服:    前端 3001  后端 8101
 #   项目② 自媒体助手:  前端 3002  后端 8202
 #   项目③ 短视频工坊:  前端 3000  后端 8000
+#   项目④ 素材管理:    前端 3004  后端 8400
 #   共享 PostgreSQL:   5432 (仅容器内)
 # ============================================================
 
@@ -117,6 +118,36 @@ services:
       - "3000:80"
     depends_on:
       - p3-backend
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════
+  # 项目④ — AI 素材管理平台 (B端)
+  # 端口: 前端3004 后端8400  数据库: postgres/assetmgmt
+  # ═══════════════════════════════════════════════════════
+  p4-backend:
+    build:
+      context: ./04-AI素材管理平台/backend
+      dockerfile: Dockerfile
+    container_name: p4-backend
+    env_file: ./04-AI素材管理平台/backend/.env.docker
+    ports:
+      - "8400:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  p4-frontend:
+    build:
+      context: ./04-AI素材管理平台/frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_HOST: p4-backend
+    container_name: p4-frontend
+    ports:
+      - "3004:80"
+    depends_on:
+      - p4-backend
     restart: unless-stopped
 
 volumes:

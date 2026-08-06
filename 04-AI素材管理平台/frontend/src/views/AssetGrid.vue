@@ -8,7 +8,7 @@
       <div class="topbar-search">
         <n-input
           v-model:value="searchText"
-          placeholder="搜索素材 — 试试输入"夕阳"、"城市"…"
+          placeholder="搜索素材 — 试试输入夕阳、城市…"
           clearable
           size="large"
           round

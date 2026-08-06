@@ -4,18 +4,18 @@
     <div class="login-left">
       <div class="left-inner">
         <div class="logo-area">
-          <span class="logo-icon">🤖</span>
-          <h1>RAG 知识库问答系统</h1>
-          <p>基于 AI 的电商商品智能问答助手</p>
+          <span class="logo-icon">🗂️</span>
+          <h1>AI素材管理平台</h1>
+          <p>企业级数字资产管理 · 智能标签 · 多模态检索</p>
         </div>
         <div class="feature-list">
-          <div class="feat"><span>🔍</span> 知识库检索 — 上传商品文档，AI 精准回答</div>
-          <div class="feat"><span>💬</span> 多轮对话 — 像聊天一样查询产品信息</div>
-          <div class="feat"><span>📎</span> 引用溯源 — 每个回答标注信息来源</div>
-          <div class="feat"><span>📊</span> 数据管理 — 可视化仪表盘 + 知识库管理</div>
+          <div class="feat"><span>🏷️</span> AI自动打标 — 上传素材自动生成标签和描述</div>
+          <div class="feat"><span>🔍</span> 多模态检索 — 文本搜图/以图搜图/标签筛选</div>
+          <div class="feat"><span>📁</span> 版本管理 — 素材版本追踪，随时回溯</div>
+          <div class="feat"><span>👥</span> 权限控制 — 多角色权限，团队协作</div>
         </div>
       </div>
-      <div class="left-footer">毕业设计项目 · LangChain + FastAPI + Vue 3</div>
+      <div class="left-footer">面试项目 · Vue3 + FastAPI + LangChain + CLIP</div>
     </div>
 
     <!-- Right: Login form -->
@@ -68,7 +68,7 @@ async function handleLogin(){
   loading.value=true
   const ok=await authStore.login({username:form.username,password:form.password})
   loading.value=false
-  if(ok){message.success('登录成功');router.push((route.query.redirect as string)||'/chat')}
+  if(ok){message.success('登录成功');router.push((route.query.redirect as string)||'/assets')}
   else message.error('用户名或密码错误')
 }
 </script>

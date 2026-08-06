@@ -4,3 +4,4 @@
 CREATE DATABASE rag_system;
 CREATE DATABASE selfmedia;
 CREATE DATABASE videofactory;
+CREATE DATABASE assetmgmt;
