@@ -29,7 +29,7 @@
             @click="batchMode ? toggleSelect(s.id) : loadHistory(s)"
           >
             <n-checkbox v-if="batchMode" :checked="selectedIds.has(s.id)" size="small" @click.stop="toggleSelect(s.id)" style="margin-right:4px;" />
-            <span class="hi-title" :title="s.title">{{ cleanTitle(s.title) }}</span>
+            <span class="hi-title" :title="cleanTitle(s.title)">{{ cleanTitle(s.title) }}</span>
             <span class="hi-date">{{ formatDate(s.updated_at) }}</span>
             <n-popconfirm v-if="!batchMode" @positive-click="deleteHistory(s.id)">
               <template #trigger>
@@ -352,7 +352,7 @@
               <!-- Video preview player -->
               <div v-if="vt.video_url" class="video-preview-box">
                 <video :src="vt.video_url" controls style="width:100%;max-height:300px;border-radius:8px;background:#000;" />
-                <n-button size="small" type="primary" @click="window.open(vt.video_url, '_blank')" style="margin-top:4px;">🔗 新窗口打开</n-button>
+                <n-button size="small" type="primary" @click="openVideoUrl(vt.video_url)" style="margin-top:4px;">🔗 新窗口打开</n-button>
               </div>
               <p v-if="vt.error" style="color:var(--danger, #e74c3c);font-size:12px;margin:2px 0 0;">{{ vt.error }}</p>
             </div>
@@ -604,6 +604,8 @@ function cleanTitle(title: string | null): string {
   return title.replace(/[\n\r]+/g, ' ').substring(0, 30) || '未命名脚本'
 }
 
+function openVideoUrl(url: string) { window.open(url, '_blank') }
+
 // ── Batch mode ──────────────────────────────────────────────────────────
 function toggleBatchMode() {
   batchMode.value = !batchMode.value
@@ -828,7 +830,7 @@ async function handleTTS() {
       (ttsSpeed.value >= 0 ? '+' : '') + ttsSpeed.value + '%',
     )
     ttsProgress.value = 100
-    ttsProgressText.value = `生成完成！(${res.data.shot_count || 1} 个分镜配音)`
+    ttsProgressText.value = `生成完成！(${(res.data as any).shot_count || 1} 个分镜配音)`
     ttsFileName.value = res.data.filename
     ttsAudioUrl.value = generationApi.getTTSDownloadUrl(res.data.filename)
     message.success('配音生成成功！')

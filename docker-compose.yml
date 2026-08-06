@@ -1,0 +1,123 @@
+# ============================================================
+# AI 项目集群 — 统一 Docker Compose
+# ============================================================
+# 用法:
+#   docker compose up -d              # 启动全部 (后台)
+#   docker compose up -d --build      # 重新构建 + 启动
+#   docker compose down               # 停止全部
+#   docker compose logs -f p1-backend # 查看某个服务日志
+#
+# 端口:
+#   项目① RAG客服:    前端 3001  后端 8101
+#   项目② 自媒体助手:  前端 3002  后端 8202
+#   项目③ 短视频工坊:  前端 3000  后端 8000
+#   共享 PostgreSQL:   5432 (仅容器内)
+# ============================================================
+
+services:
+
+  # ═══════════════════════════════════════════════════════
+  # 共享基础设施 — PostgreSQL（3个项目共用，分3个数据库）
+  # ═══════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ai-projects-2024
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════
+  # 项目① — RAG 智能客服系统
+  # ═══════════════════════════════════════════════════════
+  p1-backend:
+    build:
+      context: ./01-RAG智能客服系统/backend
+      dockerfile: Dockerfile
+    container_name: p1-backend
+    ports:
+      - "8101:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  p1-frontend:
+    build:
+      context: ./01-RAG智能客服系统/frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_HOST: p1-backend
+    container_name: p1-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - p1-backend
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════
+  # 项目② — AI 自媒体内容助手
+  # ═══════════════════════════════════════════════════════
+  p2-backend:
+    build:
+      context: ./02-AI自媒体内容助手/backend
+      dockerfile: Dockerfile
+    container_name: p2-backend
+    ports:
+      - "8202:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  p2-frontend:
+    build:
+      context: ./02-AI自媒体内容助手/frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_HOST: p2-backend
+    container_name: p2-frontend
+    ports:
+      - "3002:80"
+    depends_on:
+      - p2-backend
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════
+  # 项目③ — AI 短视频脚本工坊
+  # ═══════════════════════════════════════════════════════
+  p3-backend:
+    build:
+      context: ./03-AI短视频脚本工坊/backend
+      dockerfile: Dockerfile
+    container_name: p3-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  p3-frontend:
+    build:
+      context: ./03-AI短视频脚本工坊/frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_HOST: p3-backend
+    container_name: p3-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - p3-backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,79 +1,69 @@
-# FastAPI & Server
-fastapi==0.115.0
-uvicorn[standard]==0.30.0
-python-multipart==0.0.12
+# FastAPI & Server (核心框架)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.12
 
 # Database
-sqlalchemy[asyncio]==2.0.35
-asyncpg==0.29.0
-alembic==1.13.2
-psycopg2-binary==2.9.9
+sqlalchemy[asyncio]>=2.0.35
+asyncpg>=0.29.0
+alembic>=1.13.2
+psycopg2-binary>=2.9.9
 
 # Auth
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.2.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0,<4.1.0
 
-# LangChain & AI
-langchain==0.3.0
-langchain-community==0.3.0
-langchain-deepseek==0.1.0
-langchain-ollama==0.1.0
-langchain-chroma==0.1.0
-langchain-text-splitters==0.3.0
+# LangChain & AI (全部解除版本锁)
+langchain
+langchain-community
+langchain-deepseek
+langchain-ollama
+langchain-chroma
+langchain-text-splitters
 
-# ChromaDB Client
-chromadb==0.5.0
+# ChromaDB
+chromadb
 
-# LLM & Embedding
-ollama==0.3.0
-openai==1.50.0
+# LLM
+ollama
+openai
 
 # Document Processing
-pypdf==4.3.0
-docx2txt==0.8
-unstructured==0.15.0
-markdown==3.6
-
-# Redis & Celery
-redis==5.0.0
-celery[redis]==5.4.0
-
-# Neo4j (GraphRAG)
-neo4j==5.25.0
+pypdf>=4.3.0
+docx2txt>=0.8
+unstructured
 
 # HTTP & Networking
-httpx==0.27.0
-aiohttp==3.10.0
-slowapi==0.1.9
+httpx
+aiohttp
+slowapi
 
 # Pydantic Settings
-pydantic-settings==2.5.0
+pydantic-settings
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv
 
 # Testing
-pytest==8.3.4
-pytest-asyncio==0.24.0
-aiosqlite==0.20.0
-pytest-timeout==2.3.1
-
-# Stress Testing
-locust==2.31.8
+pytest
+pytest-asyncio
+aiosqlite
+pytest-timeout
 
 # TTS (Text-to-Speech)
-edge-tts>=7.2.0
+edge-tts
 
-# Audio metadata (MP3 duration extraction)
-mutagen>=1.47.0
-pydub>=0.25.0
+# Audio metadata (MP3 duration)
+mutagen
+pydub
 
 # Video Generation (智谱 CogVideoX)
-zhipuai>=2.1.0
+zhipuai
 
 # Subtitle Export
-pysrt>=1.1.0
+pysrt
 
-# CapCut Draft (剪映草稿生成)
-pycapcut>=0.1.0
+# CapCut Draft (剪映草稿)
+# 已注释 — pycapcut 最高版本 0.0.3，剪映 11.x 加密格式已不兼容
+# pycapcut
