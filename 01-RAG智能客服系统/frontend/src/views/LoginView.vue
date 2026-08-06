@@ -1,55 +1,97 @@
 <template>
   <div class="login-page">
-    <!-- Left: Product intro -->
-    <div class="login-left">
-      <div class="left-inner">
-        <div class="logo-area">
+    <!-- Subtle dot grid background -->
+    <div class="bg-dots" />
+
+    <!-- Center card only — no split screen -->
+    <div class="login-container">
+      <!-- Card -->
+      <div class="login-card anim-scale-in">
+        <!-- Logo area -->
+        <div class="card-logo">
           <span class="logo-icon">💬</span>
-          <h1>RAG 知识库问答系统</h1>
+          <h1>RAG 知识库问答</h1>
           <p>企业级 AI 知识库问答平台</p>
         </div>
-        <div class="feature-list">
-          <div class="feat"><span>🔍</span> 知识库检索 — 上传商品文档，AI 精准回答</div>
-          <div class="feat"><span>💬</span> 多轮对话 — 像聊天一样查询产品信息</div>
-          <div class="feat"><span>📎</span> 引用溯源 — 每个回答标注信息来源</div>
-          <div class="feat"><span>📊</span> 数据管理 — 可视化仪表盘 + 知识库管理</div>
-        </div>
-      </div>
-      <div class="left-footer">毕业设计项目 · LangChain + FastAPI + Vue 3</div>
-    </div>
 
-    <!-- Right: Login form -->
-    <div class="login-right">
-      <div class="form-card">
-        <h2>欢迎回来 👋</h2>
-        <p class="form-sub">登录你的账号开始使用</p>
+        <!-- Error -->
+        <div v-if="errorMsg" class="error-bar" :class="errorClass">
+          <span>{{ errorIcon }} {{ errorMsg }}</span>
+          <button @click="errorMsg = ''">✕</button>
+        </div>
+
+        <!-- Form -->
         <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
           <n-form-item label="用户名" path="username">
-            <n-input v-model:value="form.username" placeholder="请输入用户名" size="large" :input-props="{autocomplete:'username'}" />
+            <n-input
+              v-model:value="form.username"
+              placeholder="请输入用户名"
+              size="large"
+              :input-props="{ autocomplete: 'username' }"
+              @keyup.enter="focusPassword"
+            />
           </n-form-item>
+
           <n-form-item label="密码" path="password">
-            <n-input v-model:value="form.password" type="password" placeholder="请输入密码" size="large" @keyup.enter="handleLogin" :input-props="{autocomplete:'current-password'}" />
+            <n-input
+              ref="passwordInputRef"
+              v-model:value="form.password"
+              :type="showPwd ? 'text' : 'password'"
+              placeholder="请输入密码"
+              size="large"
+              :input-props="{ autocomplete: 'current-password' }"
+              @keyup.enter="handleLogin"
+            >
+              <template #suffix>
+                <button type="button" class="pwd-btn" @click="showPwd = !showPwd">
+                  {{ showPwd ? '🙈' : '👁️' }}
+                </button>
+              </template>
+            </n-input>
           </n-form-item>
-          <n-button type="primary" block size="large" :loading="loading" @click="handleLogin" style="height:48px;font-size:16px;font-weight:600;">
-            登 录
+
+          <!-- Row: remember + forgot -->
+          <div class="form-row">
+            <n-checkbox v-model:checked="rememberMe" size="small">记住登录</n-checkbox>
+            <n-button text type="primary" size="small" @click="$router.push('/forgot-password')">
+              忘记密码？
+            </n-button>
+          </div>
+
+          <n-button
+            type="primary"
+            block
+            size="large"
+            :loading="loading"
+            @click="handleLogin"
+            class="login-btn"
+          >
+            {{ loading ? '验证中…' : '登 录' }}
           </n-button>
         </n-form>
-        <div class="form-extra">
+
+        <!-- Bottom links -->
+        <div class="card-footer">
           <span>还没有账号？</span>
-          <n-button text type="primary" @click="$router.push('/register')">立即注册</n-button>
-        </div>
-        <div class="demo-hint">
-          <n-divider>演示账号</n-divider>
-          <n-tag type="info" size="small">admin</n-tag>
-          <n-tag type="info" size="small" style="margin-left:6px;">123456</n-tag>
+          <n-button text type="primary" @click="$router.push('/register')">创建账号</n-button>
         </div>
       </div>
+
+      <!-- Demo hint below card -->
+      <div class="demo-hint">
+        <span>演示账号</span>
+        <n-tag type="info" size="small">admin</n-tag>
+        <n-tag type="info" size="small">123456</n-tag>
+      </div>
+
+      <!-- Footer -->
+      <p class="login-footer">毕业设计项目 · LangChain + FastAPI + Vue 3</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMessage } from 'naive-ui'
@@ -57,61 +99,260 @@ import type { FormInst, FormRules } from 'naive-ui'
 
 const router = useRouter(); const route = useRoute()
 const authStore = useAuthStore(); const message = useMessage()
-const formRef = ref<FormInst|null>(null); const loading = ref(false)
-const form = reactive({username:'',password:''})
+const formRef = ref<FormInst | null>(null); const passwordInputRef = ref<any>(null)
+const loading = ref(false); const showPwd = ref(false); const errorMsg = ref(''); const rememberMe = ref(false)
+const form = reactive({ username: '', password: '' })
 const rules: FormRules = {
-  username:[{required:true,message:'请输入用户名',trigger:'blur'}],
-  password:[{required:true,message:'请输入密码',trigger:'blur'}],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
-async function handleLogin(){
-  const v=await formRef.value?.validate().catch(()=>false); if(!v) return
-  loading.value=true
-  const ok=await authStore.login({username:form.username,password:form.password})
-  loading.value=false
-  if(ok){message.success('登录成功');router.push((route.query.redirect as string)||'/chat')}
-  else message.error('用户名或密码错误')
+
+const errorIcon = computed(() => {
+  if (errorMsg.value.includes('不存在')) return '🚫'
+  if (errorMsg.value.includes('密码')) return '🔑'
+  return '⚠️'
+})
+const errorClass = computed(() => {
+  if (errorMsg.value.includes('不存在')) return 'err-red'
+  if (errorMsg.value.includes('密码')) return 'err-orange'
+  return 'err-generic'
+})
+
+function focusPassword() { passwordInputRef.value?.focus() }
+
+async function handleLogin() {
+  errorMsg.value = ''
+  const v = await formRef.value?.validate().catch(() => false)
+  if (!v) return
+  loading.value = true
+  try {
+    const ok = await authStore.login({ username: form.username, password: form.password })
+    loading.value = false
+    if (ok) { message.success('登录成功！'); router.push((route.query.redirect as string) || '/chat') }
+    else errorMsg.value = '用户名或密码错误'
+  } catch (e: any) {
+    loading.value = false
+    const detail = e?.response?.data?.detail || ''
+    errorMsg.value = detail || '登录失败'
+    const card = document.querySelector('.login-card')
+    if (card) { card.classList.add('shake'); setTimeout(() => card.classList.remove('shake'), 500) }
+  }
 }
 </script>
 
 <style scoped>
-.login-page { display:flex; height:100vh; }
-.login-left {
-  flex:1; background:linear-gradient(135deg,#0F172A 0%,#1E3A5F 40%,#2563EB 100%);
-  color:#e0e0f0; display:flex; flex-direction:column; justify-content:center;
-  align-items:center; padding:60px; position:relative; overflow:hidden;
-}
-.login-left::before {
-  content:''; position:absolute; top:-100px; right:-100px; width:300px; height:300px;
-  background:rgba(37,99,235,.08); border-radius:50%;
-}
-.login-left::after {
-  content:''; position:absolute; bottom:-80px; left:-80px; width:250px; height:250px;
-  background:rgba(37,99,235,.08); border-radius:50%;
-}
-.left-inner { max-width:460px; position:relative; z-index:1; }
-.logo-area { text-align:center; margin-bottom:40px; }
-.logo-icon { font-size:64px; display:block; margin-bottom:12px; }
-.logo-area h1 { font-size:28px; font-weight:700; color:#fff; margin:0 0 6px; }
-.logo-area p { color:#8899bb; font-size:15px; margin:0; }
-.feat { padding:12px 16px; margin-bottom:8px; border-radius:10px; background:rgba(255,255,255,.04); font-size:14px; color:#bcc8e0; display:flex; align-items:center; gap:10px; backdrop-filter:blur(8px); transition:transform .2s; }
-.feat:hover { transform:translateX(6px); background:rgba(255,255,255,.08); }
-.feat span { font-size:20px; }
-.left-footer { position:absolute; bottom:20px; color:#556; font-size:12px; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Project ① — 简约企业SaaS风格
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-.login-right { width:480px; display:flex; align-items:center; justify-content:center; padding:40px; background:#fff; }
-.form-card { width:100%; max-width:380px; padding:32px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-.form-card h2 { font-size:26px; font-weight:700; margin:0 0 4px; color:#0F172A; }
-.form-sub { color:#888; margin:0 0 28px; font-size:14px; }
-.form-extra { text-align:center; margin-top:20px; font-size:14px; color:#999; }
-.demo-hint { text-align:center; margin-top:20px; }
-.demo-hint :deep(.n-tag) { font-weight:500; }
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F0F2F5;
+  position: relative;
+  overflow: hidden;
+}
 
-[data-theme="dark"] .login-right { background:#18181D; }
-[data-theme="dark"] .form-card h2 { color:#eee; }
-[data-theme="dark"] .form-sub { color: #aaa; }
-[data-theme="dark"] .form-extra { color: #aaa; }
-[data-theme="dark"] .feat { color: #94A3B8; background: rgba(255,255,255,.06); }
-[data-theme="dark"] .feat:hover { background: rgba(255,255,255,.1); }
-[data-theme="dark"] .left-footer { color: #64748B; }
-[data-theme="dark"] .logo-area p { color: #94A3B8; }
+/* ── Dot grid background ────────────────────────────────────────────────── */
+.bg-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #D1D5DB 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.5;
+}
+
+/* ── Center container ───────────────────────────────────────────────────── */
+.login-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+.login-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px 36px 32px;
+  box-shadow:
+    0 1px 3px rgba(0,0,0,.04),
+    0 4px 16px rgba(0,0,0,.04),
+    0 12px 40px rgba(0,0,0,.06);
+  border: 1px solid #E5E7EB;
+}
+
+.login-card.shake {
+  animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  15%,55%,85% { transform: translateX(-3px); }
+  35%,70% { transform: translateX(3px); }
+}
+
+/* ── Logo ───────────────────────────────────────────────────────────────── */
+.card-logo {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.logo-icon {
+  font-size: 44px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.card-logo h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+  letter-spacing: -0.3px;
+}
+
+.card-logo p {
+  color: #9CA3AF;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Error bar ──────────────────────────────────────────────────────────── */
+.error-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: fadeInDown 0.25s ease both;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.error-bar button {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  padding: 0 2px;
+}
+
+.error-bar button:hover { opacity: 1; }
+
+.err-red { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.err-orange { background: #FFF7ED; color: #EA580C; border: 1px solid #FED7AA; }
+.err-generic { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+
+/* ── Form row ───────────────────────────────────────────────────────────── */
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: -10px;
+  margin-bottom: 16px;
+}
+
+/* ── Password button ────────────────────────────────────────────────────── */
+.pwd-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.pwd-btn:hover { background: #F3F4F6; }
+
+/* ── Login button ───────────────────────────────────────────────────────── */
+.login-btn {
+  height: 46px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  background: #2563EB !important;
+  border: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.login-btn:hover {
+  background: #1D4ED8 !important;
+  box-shadow: 0 4px 12px rgba(37,99,235,.3) !important;
+  transform: translateY(-1px);
+}
+
+.login-btn:active { transform: translateY(0); }
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+.card-footer {
+  text-align: center;
+  margin-top: 22px;
+  font-size: 14px;
+  color: #9CA3AF;
+}
+
+.demo-hint {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #9CA3AF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.demo-hint span:first-child {
+  color: #9CA3AF;
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #C4C8CF;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] .login-page {
+  background: #0F172A;
+}
+
+[data-theme="dark"] .bg-dots {
+  background-image: radial-gradient(circle, #1E293B 1px, transparent 1px);
+  opacity: 0.6;
+}
+
+[data-theme="dark"] .login-card {
+  background: #1E293B;
+  border-color: #334155;
+  box-shadow: 0 12px 40px rgba(0,0,0,.4);
+}
+
+[data-theme="dark"] .card-logo h1 { color: #F1F5F9; }
+[data-theme="dark"] .card-logo p { color: #64748B; }
+[data-theme="dark"] .login-footer { color: #475569; }
+[data-theme="dark"] .demo-hint { color: #64748B; }
+[data-theme="dark"] .pwd-btn:hover { background: #334155; }
+[data-theme="dark"] .card-footer { color: #64748B; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .login-container { padding: 16px; }
+  .login-card { padding: 28px 20px 24px; }
+  .logo-icon { font-size: 36px; }
+  .card-logo h1 { font-size: 20px; }
+}
 </style>

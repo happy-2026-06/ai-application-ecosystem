@@ -17,6 +17,7 @@ from app.schemas.chat import (
     ChatRequest,
     MessageResponse,
     FeedbackRequest,
+    EscalateRequest,
     EscalateResponse,
 )
 
@@ -236,19 +237,30 @@ HUMAN_AGENT_QUEUE: list[dict] = []
 
 @router.post("/escalate", response_model=EscalateResponse)
 async def escalate_to_human(
-    session_id: str,
+    session_id: str = "",
     reason: str = "",
+    body: EscalateRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """将当前会话转接人工客服
 
+    支持两种传参方式：
+    1. Query string: POST /api/chat/escalate?session_id=xxx
+    2. JSON body: POST /api/chat/escalate  Body: {"session_id": "xxx"}
+
     将会话标记为待人工处理，保存转接原因。
     实际场景中会推送到客服工作台/企业微信/钉钉。
     """
+    # 优先从 body 取，其次从 query string 取
+    sid = (body and body.session_id) or session_id
+    rsn = (body and body.reason) or reason
+
+    if not sid:
+        raise HTTPException(status_code=422, detail="缺少 session_id 参数")
     result = await db.execute(
         select(Session).where(
-            Session.id == session_id,
+            Session.id == sid,
             Session.user_id == current_user.id,
         )
     )
@@ -256,17 +268,17 @@ async def escalate_to_human(
     if not chat_session:
         raise HTTPException(status_code=404, detail="会话不存在")
     ticket = {
-        "session_id": session_id,
+        "session_id": sid,
         "user_id": str(current_user.id),
         "username": current_user.username,
-        "reason": reason or "用户请求人工客服",
+        "reason": rsn or "用户请求人工客服",
         "status": "pending",
     }
     HUMAN_AGENT_QUEUE.append(ticket)
 
     # 在对话中插入系统消息
     system_msg = Message(
-        session_id=session_id,
+        session_id=sid,
         user_id=current_user.id,
         role="assistant",
         content=f"已为您转接人工客服，请稍候…（工单号：{len(HUMAN_AGENT_QUEUE)}）\n\n⏰ 人工客服工作时间：每天 9:00-22:00\n📞 紧急问题请拨打：400-888-6666",

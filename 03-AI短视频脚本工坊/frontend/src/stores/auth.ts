@@ -34,8 +34,9 @@ export const useAuthStore = defineStore('auth', () => {
       refreshToken.value = d.refresh_token
       user.value = d.user
       return true
-    } catch {
-      return false
+    } catch (e: any) {
+      // Re-throw so the view can extract error details
+      throw e
     }
   }
 

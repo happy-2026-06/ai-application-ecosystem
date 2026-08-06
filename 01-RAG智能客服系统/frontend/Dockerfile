@@ -23,6 +23,19 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # HTML 不缓存
+    location ~* \.html$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        try_files \$uri =404;
+    }
+
+    # JS/CSS 静态资源禁用缓存（开发阶段）
+    location ~* \.(js|css)$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        expires -1;
+        try_files \$uri =404;
+    }
+
     # SPA 回退
     location / {
         try_files \$uri \$uri/ /index.html;
@@ -39,17 +52,21 @@ server {
         proxy_cache off;
         proxy_set_header Connection '';
         proxy_http_version 1.1;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
     }
 
     # API 文档
     location /api/docs {
-        proxy_pass http://${BACKEND_HOST}:8000;
+        proxy_pass http://${BACKEND_HOST}:8000/docs;
         proxy_set_header Host \$host;
     }
     location /api/redoc {
-        proxy_pass http://${BACKEND_HOST}:8000;
+        proxy_pass http://${BACKEND_HOST}:8000/redoc;
+        proxy_set_header Host \$host;
+    }
+    location /api/openapi.json {
+        proxy_pass http://${BACKEND_HOST}:8000/openapi.json;
         proxy_set_header Host \$host;
     }
 }

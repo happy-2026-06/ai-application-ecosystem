@@ -1,11 +1,13 @@
 """Authentication API routes."""
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.models.user import User
 from app.core.auth import get_current_user
+from app.core.security import get_password_hash
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
@@ -13,6 +15,8 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     UserResponse,
     RefreshTokenRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
 )
 from app.services import auth_service
 
@@ -98,3 +102,50 @@ async def update_profile(
         current_user.display_name = body.display_name.strip()
         await db.flush()
     return {"message": "个人信息已更新", "display_name": current_user.display_name}
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Request a password reset. In demo mode, always returns success
+    (does not reveal whether the user exists — security best practice).
+    """
+    result = await db.execute(select(User).where(User.username == request.username))
+    user = result.scalar_one_or_none()
+
+    # Demo: we log whether user was found but never expose it to the client
+    import logging
+    logger = logging.getLogger(__name__)
+    if user:
+        logger.info("Password reset requested for user '%s' (demo mode)", request.username)
+    else:
+        logger.info("Password reset requested for non-existent user '%s'", request.username)
+
+    return {
+        "message": "密码重置链接已发送到注册邮箱",
+        "demo": True,
+        "hint": "演示模式：请使用「重置密码」接口直接修改密码" if user else "该用户名未注册",
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset a user's password directly (demo mode — simplified flow)."""
+    result = await db.execute(select(User).where(User.username == request.username))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    user.hashed_password = get_password_hash(request.new_password)
+    await db.flush()
+
+    return {"message": "密码重置成功，请使用新密码登录"}

@@ -6,6 +6,7 @@ const routes: RouteRecordRaw[] = [
   // Auth pages (no layout)
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { guest: true } },
   { path: '/register', name: 'Register', component: () => import('../views/RegisterView.vue'), meta: { guest: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPasswordView.vue'), meta: { guest: true } },
 
   // App pages (with top nav layout)
   {

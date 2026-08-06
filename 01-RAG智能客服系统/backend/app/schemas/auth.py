@@ -16,20 +16,6 @@ class LoginRequest(BaseModel):
     password: str = Field(..., description="密码")
 
 
-class TokenResponse(BaseModel):
-    """JWT token response."""
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int  # seconds
-
-
-class ChangePasswordRequest(BaseModel):
-    """Change password request."""
-    old_password: str = Field(..., description="旧密码")
-    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
-
-
 class UserResponse(BaseModel):
     """Public user information."""
     id: str
@@ -42,6 +28,32 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TokenResponse(BaseModel):
+    """JWT token response."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+    user: UserResponse | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request."""
+    old_password: str = Field(..., description="旧密码")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
+
+
 class RefreshTokenRequest(BaseModel):
     """Refresh token request."""
     refresh_token: str = Field(..., description="刷新令牌")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request."""
+    username: str = Field(..., description="用户名")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request (demo mode)."""
+    username: str = Field(..., description="用户名")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")

@@ -43,6 +43,12 @@ export const authApi = {
       new_password: newPassword,
     })
   },
+  forgotPassword(username: string) {
+    return apiClient.post<{ message: string; demo: boolean; hint?: string }>('/auth/forgot-password', { username })
+  },
+  resetPassword(username: string, newPassword: string) {
+    return apiClient.post('/auth/reset-password', { username, new_password: newPassword })
+  },
   getMe() {
     return apiClient.get('/auth/me')
   },
