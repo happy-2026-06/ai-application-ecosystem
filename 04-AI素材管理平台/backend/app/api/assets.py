@@ -108,27 +108,62 @@ async def upload_asset(
 
 
 async def _generate_ai_tags(asset_id: str, db: AsyncSession) -> None:
-    """Background task: generate AI tags for an asset."""
+    """Background task: generate AI tags for an asset using LLM."""
     result = await db.execute(select(Asset).where(Asset.id == asset_id))
     asset = result.scalar_one_or_none()
     if not asset:
         return
 
     try:
-        # For now: generate mock tags based on filename
-        # In production: call CLIP/BLIP for real image understanding
+        # Try LLM-based tagging first
         name_lower = asset.original_name.lower()
-        mock_tags = _mock_tag_from_name(name_lower)
-        mock_desc = f"素材: {asset.original_name}"
+        ext = os.path.splitext(asset.original_name)[1].lower()
+        type_label = "图片" if asset.file_type.startswith("image") else ("视频" if asset.file_type.startswith("video") else "文档")
 
-        asset.ai_tags = mock_tags
-        asset.ai_description = mock_desc
+        try:
+            from app.rag.chain import get_llm_client
+            llm = get_llm_client()
+            tagging_prompt = (
+                f"你是一个专业的数字资产管理(DAM)标签专家。请为以下素材生成精确的标签和描述。\n\n"
+                f"文件名: {asset.original_name}\n"
+                f"文件类型: {asset.file_type}（{type_label}）\n"
+                f"文件大小: {asset.file_size / 1024:.1f} KB\n\n"
+                f"请以JSON格式输出（只输出JSON，不要其他内容）：\n"
+                f'{{"tags": ["标签1", "标签2", "标签3", "标签4", "标签5"], "description": "一段简洁的中文描述，包含主体、场景、风格、色调等信息"}}\n\n'
+                f"标签要求：\n"
+                f"- 3-5个中文标签\n"
+                f"- 标签要具体（如'夕阳海滩剪影'而非'风景'）\n"
+                f"- 包含：主体、场景、风格、色调等维度\n"
+            )
+            from langchain_core.messages import HumanMessage
+            response = llm.invoke([HumanMessage(content=tagging_prompt)])
+            content = response.content if hasattr(response, 'content') else str(response)
+
+            # Parse JSON
+            import json
+            content = content.strip()
+            if content.startswith("```"):  # Remove markdown code fences
+                content = content.split("\n", 1)[1].rsplit("\n", 1)[0]
+            if content.startswith("```json"):
+                content = content[7:]
+            parsed = json.loads(content)
+            ai_tags = parsed.get("tags", [])[:8]
+            ai_desc = parsed.get("description", f"素材: {asset.original_name}")
+        except Exception as e:
+            logger.warning("LLM tagging failed, using keyword fallback: %s", e)
+            ai_tags = _mock_tag_from_name(name_lower)
+            ai_desc = f"素材: {asset.original_name}"
+
+        asset.ai_tags = ai_tags or _mock_tag_from_name(name_lower)
+        asset.ai_description = ai_desc or f"素材: {asset.original_name}"
         asset.status = "ready"
         await db.flush()
         await db.commit()
-    except Exception:
+    except Exception as e:
+        logger.exception("AI tagging completely failed: %s", asset_id)
         asset.status = "ready"  # Still usable, just no AI tags
-        asset.ai_tags = []
+        asset.ai_tags = _mock_tag_from_name(asset.original_name.lower())
+        ai_desc = f"素材: {asset.original_name}"
         await db.flush()
         await db.commit()
 

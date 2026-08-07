@@ -63,6 +63,12 @@ class FeedbackRequest(BaseModel):
     comment: str | None = Field(None, max_length=500)
 
 
+class EscalateRequest(BaseModel):
+    """转人工客服请求（支持 JSON body 和 query string 两种方式）"""
+    session_id: str | None = Field(None, description="会话ID（可在 query string 或 body 中提供）")
+    reason: str = ""
+
+
 class EscalateResponse(BaseModel):
     """转人工客服响应"""
     message: str

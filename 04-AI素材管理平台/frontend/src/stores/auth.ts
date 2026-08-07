@@ -34,8 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
       refreshToken.value = d.refresh_token
       user.value = d.user
       return true
-    } catch {
-      return false
+    } catch (e: any) {
+      throw e
     }
   }
 
@@ -90,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 }, {
   persist: {
-    key: 'rag-auth',
+    key: 'asset-auth',
     storage: localStorage,
     pick: ['token', 'refreshToken', 'user', 'isDarkMode', 'avatar'],
   },

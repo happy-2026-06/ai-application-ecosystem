@@ -2,12 +2,12 @@
   <div class="reg-page">
     <div class="reg-left">
       <div class="left-inner">
-        <span class="logo-icon">🤖</span>
-        <h1>加入 RAG 知识库</h1>
-        <p>注册即享 AI 智能商品问答</p>
+        <span class="logo-icon">🗂️</span>
+        <h1>加入数字资产管理平台</h1>
+        <p>注册即享 AI 智能素材管理</p>
         <div class="feat-list">
-          <div class="feat"><span>🚀</span> 秒级响应</div><div class="feat"><span>📚</span> 海量知识</div>
-          <div class="feat"><span>🎯</span> 精准溯源</div><div class="feat"><span>🔒</span> 数据安全</div>
+          <div class="feat"><span>🏷️</span> AI自动标签</div><div class="feat"><span>🔍</span> 多模态检索</div>
+          <div class="feat"><span>📋</span> 版本管理</div><div class="feat"><span>👥</span> 团队协作</div>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@ async function reg(){const v=await fr.value?.validate().catch(()=>false);if(!v)r
 
 <style scoped>
 .reg-page{display:flex;height:100vh;}
-.reg-left{flex:1;background:linear-gradient(135deg,#16213e 0%,#0f3460 100%);display:flex;align-items:center;justify-content:center;padding:60px;}
+.reg-left{flex:1;background:linear-gradient(135deg,#0F0B1E 0%,#1A1230 40%,#2D1B69 100%);display:flex;align-items:center;justify-content:center;padding:60px;}
 .left-inner{text-align:center;color:#e0e0f0;}
 .logo-icon{font-size:64px;display:block;margin-bottom:12px;}
 .left-inner h1{font-size:28px;font-weight:700;color:#fff;margin:0 0 4px;}

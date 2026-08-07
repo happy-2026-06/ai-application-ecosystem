@@ -1,10 +1,88 @@
-/* Global styles for RAG Knowledge Base Q&A System */
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI素材管理平台 — Indigo Design System
+   企业级数字资产管理 (DAM) — B端专业风格
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ── Design Tokens ─────────────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --primary: #6366F1;
+  --primary-hover: #4F46E5;
+  --primary-light: #EEF2FF;
+  --primary-gradient: linear-gradient(135deg, #818CF8, #6366F1, #4F46E5);
+  --primary-gradient-hover: linear-gradient(135deg, #6366F1, #4F46E5, #4338CA);
+
+  /* Background */
+  --bg-body: #F8F9FC;
+  --bg-card: #FFFFFF;
+  --bg-surface: #F1F3F9;
+  --bg-sidebar: #0F0B1E;
+
+  /* Text */
+  --text-primary: #1A1230;
+  --text-secondary: #6B6580;
+  --text-muted: #A09AB5;
+
+  /* Border */
+  --border: #E4E2ED;
+  --border-light: #F3F1F9;
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(99, 102, 241, 0.10);
+  --glass-blur: 20px;
+  --glass-shadow: 0 8px 32px rgba(99, 102, 241, 0.06);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.08);
+
+  /* Transition */
+  --transition-fast: 0.15s cubic-bezier(0.4,0,0.2,1);
+  --transition-normal: 0.25s cubic-bezier(0.4,0,0.2,1);
+  --transition-slow: 0.4s cubic-bezier(0.4,0,0.2,1);
+
+  /* Ease */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ── Dark Mode Overrides ───────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --primary: #818CF8;
+  --primary-hover: #6366F1;
+  --primary-light: #1E1B4B;
+  --primary-gradient: linear-gradient(135deg, #818CF8, #6366F1, #4F46E5);
+
+  --bg-body: #0A0812;
+  --bg-card: #12101A;
+  --bg-surface: #1A1530;
+  --bg-sidebar: #080510;
+
+  --text-primary: #E8E8F0;
+  --text-secondary: #A09AB5;
+  --text-muted: #6B6580;
+
+  --border: #2D1B69;
+  --border-light: #1A1530;
+
+  --glass-bg: rgba(18, 16, 26, 0.85);
+  --glass-border: rgba(99, 102, 241, 0.08);
+
+  --shadow-sm: 0 1px 2px rgba(99,102,241,.04);
+  --shadow-md: 0 4px 12px rgba(99,102,241,.06);
+  --shadow-lg: 0 8px 32px rgba(99,102,241,.08);
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #app {
   height: 100%;
@@ -13,49 +91,66 @@ html, body, #app {
     'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.6;
+  transition: background var(--transition-normal), color var(--transition-normal);
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ── Utility Classes ────────────────────────────────────────────────────── */
+.fade-in { animation: fadeIn 0.4s var(--ease-smooth) both; }
+.slide-up { animation: slideUp 0.5s var(--ease-spring) both; }
+.scale-in { animation: scaleIn 0.4s var(--ease-spring) both; }
+.anim-float { animation: float 3s ease-in-out infinite; }
+.anim-pulse { animation: pulse 2s ease-in-out infinite; }
+
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* ── Glass Card ─────────────────────────────────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
 }
 
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+/* ── Selection ──────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--text-primary);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
-}
-
-/* Dark mode scrollbar */
-html[theme='dark'] ::-webkit-scrollbar-thumb {
-  background: #555;
-}
-
-html[theme='dark'] ::-webkit-scrollbar-thumb:hover {
-  background: #777;
-}
-
-/* Message text link styling */
-.message-text a {
-  color: #667eea;
-  text-decoration: none;
-}
-
-.message-text a:hover {
-  text-decoration: underline;
-}
-
-/* Code block in messages */
-.message-text code {
-  background: rgba(127, 127, 127, 0.1);
-  padding: 2px 6px;
+/* ── Focus Ring ─────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
   border-radius: 4px;
-  font-size: 13px;
 }
+
+/* ── NaiveUI Overrides ──────────────────────────────────────────────────── */
+.n-button--primary-type {
+  --n-color: var(--primary) !important;
+  --n-color-hover: var(--primary-hover) !important;
+}
+
+/* ── Route Transition ───────────────────────────────────────────────────── */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s var(--ease-smooth); }
+.fade-enter-from, .fade-leave-to { opacity: 0; }

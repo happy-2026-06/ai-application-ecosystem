@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { guest: true } },
   { path: '/register', name: 'Register', component: () => import('../views/RegisterView.vue'), meta: { guest: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPasswordView.vue'), meta: { guest: true } },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),
@@ -15,7 +16,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsersView.vue'), meta: { requiresAdmin: true } },
       { path: 'admin/dashboard', name: 'AdminDashboard', component: () => import('../views/AdminDashboardView.vue'), meta: { requiresAdmin: true } },
     ],
-  }
+  },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFoundView.vue') },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
