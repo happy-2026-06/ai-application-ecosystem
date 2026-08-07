@@ -13,6 +13,8 @@ from app.models.user import User
 from app.models.session import Session
 from app.models.message import Message
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +61,7 @@ async def stream_chat_response(
             from app.rag.retriever import retrieve_relevant_chunks
             retrieval_results = await retrieve_relevant_chunks(
                 query=rewritten_query,
-                top_k=5,
+                top_k=settings.RETRIEVAL_TOP_K,
             )
         except Exception as e:
             logger.warning("Vector search unavailable: %s", e)
@@ -68,7 +70,7 @@ async def stream_chat_response(
         if not retrieval_results:
             try:
                 from app.rag.simple_retriever import simple_search
-                retrieval_results = await simple_search(query=rewritten_query, top_k=5)
+                retrieval_results = await simple_search(query=rewritten_query, top_k=settings.RETRIEVAL_TOP_K)
                 if retrieval_results:
                     logger.info("Using simple keyword search, found %d results", len(retrieval_results))
             except Exception as e2:

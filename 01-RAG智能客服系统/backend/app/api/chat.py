@@ -274,9 +274,17 @@ async def escalate_to_human(
         "reason": rsn or "用户请求人工客服",
         "status": "pending",
     }
+    # NOTE: HUMAN_AGENT_QUEUE is an in-memory list — for production use,
+    # this should be migrated to a database table (e.g. `human_agent_tickets`)
+    # to survive server restarts and support multi-worker deployments.
     HUMAN_AGENT_QUEUE.append(ticket)
 
-    # 在对话中插入系统消息
+    # In the chat, insert a system message
+    queue_position = len([t for t in HUMAN_AGENT_QUEUE if t["status"] == "pending"])
+    if queue_position <= 1:
+        wait_text = "即将为您服务"
+    else:
+        wait_text = f"前面有{queue_position - 1}人排队"
     system_msg = Message(
         session_id=sid,
         user_id=current_user.id,
@@ -290,6 +298,6 @@ async def escalate_to_human(
     return {
         "message": "已转接人工客服",
         "ticket_id": len(HUMAN_AGENT_QUEUE),
-        "queue_length": len([t for t in HUMAN_AGENT_QUEUE if t["status"] == "pending"]),
-        "estimated_wait": f"前面有{len([t for t in HUMAN_AGENT_QUEUE if t['status'] == 'pending']) - 1}人排队",
+        "queue_length": queue_position,
+        "estimated_wait": wait_text,
     }

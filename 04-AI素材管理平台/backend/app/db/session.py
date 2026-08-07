@@ -24,11 +24,12 @@ if _is_sqlite:
     @event.listens_for(engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")       # 写前日志：读不阻塞写
-        cursor.execute("PRAGMA synchronous=NORMAL")      # 减少 fsync 次数
-        cursor.execute("PRAGMA cache_size=-8000")        # 缓存 8MB
-        cursor.execute("PRAGMA busy_timeout=5000")       # 锁等待 5 秒（默认 0=立即失败）
-        cursor.execute("PRAGMA foreign_keys=ON")         # 外键约束
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=-8000")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA encoding='UTF-8'")
         cursor.close()
 
 AsyncSessionLocal = async_sessionmaker(

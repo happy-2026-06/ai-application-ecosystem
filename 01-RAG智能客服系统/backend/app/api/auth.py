@@ -39,6 +39,7 @@ async def register(
         username=request.username,
         password=request.password,
         email=request.email,
+        phone=request.phone,
         display_name=request.display_name,
     )
     return user

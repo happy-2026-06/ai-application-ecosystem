@@ -146,7 +146,13 @@ html, body, #app {
 }
 
 /* ── NaiveUI Overrides ──────────────────────────────────────────────────── */
-.n-button--primary-type {
+/* Only overlay brand color on solid (filled) primary buttons.              */
+/* Text / ghost / default buttons keep their own NaiveUI defaults.          */
+.n-button--primary-type.n-button--default-type {
+  --n-color: var(--primary) !important;
+  --n-color-hover: var(--primary-hover) !important;
+}
+[data-theme="dark"] .n-button--primary-type.n-button--default-type {
   --n-color: var(--primary) !important;
   --n-color-hover: var(--primary-hover) !important;
 }

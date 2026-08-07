@@ -18,6 +18,7 @@ async def register_user(
     username: str,
     password: str,
     email: str | None = None,
+    phone: str | None = None,
     display_name: str | None = None,
 ) -> User:
     """Register a new user."""
@@ -32,6 +33,7 @@ async def register_user(
     user = User(
         username=username,
         email=email,
+        phone=phone,
         display_name=display_name if display_name is not None else username,
         hashed_password=get_password_hash(password),
         role="user",
@@ -150,9 +152,9 @@ async def refresh_access_token(
 async def seed_admin_user(db: AsyncSession) -> None:
     """Ensure an admin user exists with the configured credentials.
 
-    Creates the admin user if absent. Does NOT reset the password on restart
-    — once created, the admin password persists from the database.
-    To reset the admin password, use a CLI script or change it via the web UI.
+    Creates the admin user if absent. Password is synced from config on every restart
+    so changing ADMIN_PASSWORD in .env and restarting the app takes effect.
+    Role is also corrected if it drifted.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -174,7 +176,14 @@ async def seed_admin_user(db: AsyncSession) -> None:
         db.add(admin)
         await db.flush()
         logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)
-    elif admin.role != "admin":
-        admin.role = "admin"
-        await db.flush()
-        logger.info("Admin user '%s' role corrected to admin", settings.ADMIN_USERNAME)
+    else:
+        # Restore admin role if it drifted
+        if admin.role != "admin":
+            admin.role = "admin"
+            await db.flush()
+            logger.info("Admin user '%s' role corrected to admin", settings.ADMIN_USERNAME)
+        # Sync password on every restart so changing .env + restart works
+        if not verify_password(settings.ADMIN_PASSWORD, admin.hashed_password):
+            admin.hashed_password = get_password_hash(settings.ADMIN_PASSWORD)
+            await db.flush()
+            logger.info("Admin user '%s' password synced to current config", settings.ADMIN_USERNAME)

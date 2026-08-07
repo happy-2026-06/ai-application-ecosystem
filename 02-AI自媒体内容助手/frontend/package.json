@@ -1,5 +1,5 @@
 {
-  "name": "rag-frontend",
+  "name": "selfmedia-frontend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,6 @@
   "dependencies": {
     "@vicons/ionicons5": "^0.12.0",
     "axios": "^1.7.0",
-    "date-fns": "^3.6.0",
-    "highlight.js": "^11.10.0",
     "markdown-it": "^14.1.0",
     "naive-ui": "^2.39.0",
     "pinia": "^2.2.0",

@@ -44,6 +44,7 @@ services:
       context: ./01-RAG智能客服系统/backend
       dockerfile: Dockerfile
     container_name: p1-backend
+    env_file: ./01-RAG智能客服系统/backend/.env.docker
     ports:
       - "8101:8000"
     depends_on:
@@ -55,11 +56,17 @@ services:
     build:
       context: ./01-RAG智能客服系统/frontend
       dockerfile: Dockerfile
-      args:
-        BACKEND_HOST: p1-backend
     container_name: p1-frontend
     ports:
-      - "3001:80"
+      - "3001:5173"
+    volumes:
+      - ./01-RAG智能客服系统/frontend/src:/app/src:ro
+      - ./01-RAG智能客服系统/frontend/public:/app/public:ro
+      - ./01-RAG智能客服系统/frontend/index.html:/app/index.html:ro
+      - ./01-RAG智能客服系统/frontend/vite.config.ts:/app/vite.config.ts:ro
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      - VITE_API_BASE=http://localhost:8101
     depends_on:
       - p1-backend
     restart: unless-stopped
@@ -72,6 +79,7 @@ services:
       context: ./02-AI自媒体内容助手/backend
       dockerfile: Dockerfile
     container_name: p2-backend
+    env_file: ./02-AI自媒体内容助手/backend/.env.docker
     ports:
       - "8202:8000"
     depends_on:
@@ -83,11 +91,17 @@ services:
     build:
       context: ./02-AI自媒体内容助手/frontend
       dockerfile: Dockerfile
-      args:
-        BACKEND_HOST: p2-backend
     container_name: p2-frontend
     ports:
-      - "3002:80"
+      - "3002:5173"
+    volumes:
+      - ./02-AI自媒体内容助手/frontend/src:/app/src:ro
+      - ./02-AI自媒体内容助手/frontend/public:/app/public:ro
+      - ./02-AI自媒体内容助手/frontend/index.html:/app/index.html:ro
+      - ./02-AI自媒体内容助手/frontend/vite.config.ts:/app/vite.config.ts:ro
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      - VITE_API_BASE=http://localhost:8202
     depends_on:
       - p2-backend
     restart: unless-stopped
@@ -100,6 +114,7 @@ services:
       context: ./03-AI短视频脚本工坊/backend
       dockerfile: Dockerfile
     container_name: p3-backend
+    env_file: ./03-AI短视频脚本工坊/backend/.env.docker
     ports:
       - "8000:8000"
     depends_on:
@@ -111,11 +126,17 @@ services:
     build:
       context: ./03-AI短视频脚本工坊/frontend
       dockerfile: Dockerfile
-      args:
-        BACKEND_HOST: p3-backend
     container_name: p3-frontend
     ports:
-      - "3000:80"
+      - "3000:5173"
+    volumes:
+      - ./03-AI短视频脚本工坊/frontend/src:/app/src:ro
+      - ./03-AI短视频脚本工坊/frontend/public:/app/public:ro
+      - ./03-AI短视频脚本工坊/frontend/index.html:/app/index.html:ro
+      - ./03-AI短视频脚本工坊/frontend/vite.config.ts:/app/vite.config.ts:ro
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      - VITE_API_BASE=http://localhost:8000
     depends_on:
       - p3-backend
     restart: unless-stopped
@@ -132,6 +153,9 @@ services:
     env_file: ./04-AI素材管理平台/backend/.env.docker
     ports:
       - "8400:8000"
+    volumes:
+      - p4_uploads:/app/data/uploads
+      - ./04-AI素材管理平台/backend/app:/app/app:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,14 +165,21 @@ services:
     build:
       context: ./04-AI素材管理平台/frontend
       dockerfile: Dockerfile
-      args:
-        BACKEND_HOST: p4-backend
     container_name: p4-frontend
     ports:
-      - "3004:80"
+      - "3004:5173"
+    volumes:
+      - ./04-AI素材管理平台/frontend/src:/app/src:ro
+      - ./04-AI素材管理平台/frontend/public:/app/public:ro
+      - ./04-AI素材管理平台/frontend/index.html:/app/index.html:ro
+      - ./04-AI素材管理平台/frontend/vite.config.ts:/app/vite.config.ts:ro
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    environment:
+      - VITE_API_BASE=http://localhost:8400
     depends_on:
       - p4-backend
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  p4_uploads:

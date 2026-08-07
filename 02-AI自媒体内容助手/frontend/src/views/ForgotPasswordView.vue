@@ -125,6 +125,10 @@
             >
               {{ loading ? '重置中…' : '重置密码' }}
             </n-button>
+
+            <n-button text type="primary" @click="step = 1" class="back-link">
+              ← 返回上一步
+            </n-button>
           </div>
         </template>
 

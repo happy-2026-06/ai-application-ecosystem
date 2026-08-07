@@ -18,6 +18,7 @@ Thumbs.db
 
 # Environment
 .env
+.env.docker
 !.env.example
 
 # Data

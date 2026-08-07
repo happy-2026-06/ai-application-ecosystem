@@ -76,9 +76,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { assetApi } from '../api/assets'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,6 +103,18 @@ const navItems = computed(() => {
 })
 
 const stats = reactive({ totalAssets: 0, taggedAssets: 0, onlineUsers: 1 })
+
+async function fetchSidebarStats() {
+  try {
+    const res = await assetApi.getStats()
+    stats.totalAssets = res.data.total
+    stats.taggedAssets = res.data.tagged
+  } catch { /* keep defaults */ }
+}
+
+// Fetch on mount and on route change
+onMounted(() => fetchSidebarStats())
+watch(() => route.fullPath, () => fetchSidebarStats())
 
 function go(key: string) {
   if (key === 'assets') router.push('/assets')

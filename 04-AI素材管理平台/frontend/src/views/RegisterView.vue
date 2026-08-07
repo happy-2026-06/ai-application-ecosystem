@@ -43,6 +43,11 @@
               <template #prefix><span class="input-icon">📧</span></template>
             </n-input>
           </n-form-item>
+          <n-form-item label="手机号（可选）" path="ph">
+            <n-input v-model:value="f.ph" placeholder="13800138000" size="large" maxlength="11">
+              <template #prefix><span class="input-icon">📱</span></template>
+            </n-input>
+          </n-form-item>
           <n-form-item label="密码" path="p">
             <n-input v-model:value="f.p" type="password" placeholder="至少6位" size="large">
               <template #prefix><span class="input-icon">🔒</span></template>
@@ -93,10 +98,10 @@ import type { FormInst, FormRules } from 'naive-ui'
 
 const router = useRouter(); const auth = useAuthStore(); const msg = useMessage()
 const fr = ref<FormInst | null>(null); const ld = ref(false)
-const f = reactive({ u: '', e: '', p: '', cp: '' })
+const f = reactive({ u: '', e: '', ph: '', p: '', cp: '' })
 const r: FormRules = {
   u: [{ required: true, message: '请输入用户名' }, { min: 3, max: 50, message: '3-50字符' }],
-  p: [{ required: true, min: 6, message: '至少6位' }],
+  e: [{ type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }], ph: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }], p: [{ required: true, min: 6, message: '至少6位' }],
   cp: [{ required: true, message: '请确认密码' }, { validator: (_: any, v: string) => v === f.p, message: '两次不一致', trigger: 'blur' }],
 }
 
@@ -118,7 +123,7 @@ const pwStrength = computed(() => {
 async function reg() {
   const v = await fr.value?.validate().catch(() => false); if (!v) return
   ld.value = true
-  const ok = await auth.register({ username: f.u, password: f.p, email: f.e || undefined })
+  const ok = await auth.register({ username: f.u, password: f.p, email: f.e || undefined, phone: f.ph || undefined })
   ld.value = false
   if (ok) { msg.success('注册成功'); router.push('/login') }
   else msg.error('注册失败，用户名可能已存在')

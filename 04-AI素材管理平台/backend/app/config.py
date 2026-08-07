@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="sqlite:///./data/rag_system.db",
+        default="sqlite:///./data/assetmgmt.db",
         description="Synchronous database URL (for Alembic migrations)",
     )
 

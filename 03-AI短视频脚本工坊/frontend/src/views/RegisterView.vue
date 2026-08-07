@@ -57,6 +57,13 @@
             </n-input>
           </n-form-item>
 
+          <!-- Phone -->
+          <n-form-item label="手机号（可选）" path="ph">
+            <n-input v-model:value="f.ph" placeholder="13800138000" size="large" maxlength="11">
+              <template #prefix><span class="input-prefix-icon">📱</span></template>
+            </n-input>
+          </n-form-item>
+
           <!-- Password -->
           <n-form-item label="密码" path="p">
             <n-input
@@ -145,7 +152,7 @@ const ld = ref(false)
 const showPwd = ref(false)
 const errorMsg = ref('')
 
-const f = reactive({ u: '', e: '', p: '', cp: '', agree: false })
+const f = reactive({ u: '', e: '', ph: '', p: '', cp: '', agree: false })
 
 const r: FormRules = {
   u: [
@@ -154,6 +161,9 @@ const r: FormRules = {
   ],
   e: [
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' },
+  ],
+  ph: [
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
   ],
   p: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -222,6 +232,7 @@ async function reg() {
       username: f.u,
       password: f.p,
       email: f.e || undefined,
+      phone: f.ph || undefined,
     })
     ld.value = false
 

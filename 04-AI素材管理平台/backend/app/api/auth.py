@@ -39,6 +39,7 @@ async def register(
         username=request.username,
         password=request.password,
         email=request.email,
+        phone=request.phone,
         display_name=request.display_name,
     )
     return user
@@ -123,9 +124,8 @@ async def forgot_password(
         logger.info("Password reset requested for non-existent user '%s'", request.username)
 
     return {
-        "message": "密码重置链接已发送到注册邮箱",
+        "message": "如果该账号存在，密码重置链接已发送到注册邮箱",
         "demo": True,
-        "hint": "演示模式：请使用「重置密码」接口直接修改密码" if user else "该用户名未注册",
     }
 
 

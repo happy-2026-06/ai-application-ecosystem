@@ -31,6 +31,9 @@
           <n-form-item label="邮箱（可选）" path="e">
             <n-input v-model:value="f.e" placeholder="your@email.com" size="large"><template #prefix><span class="ip-icon">📧</span></template></n-input>
           </n-form-item>
+          <n-form-item label="手机号（可选）" path="ph">
+            <n-input v-model:value="f.ph" placeholder="13800138000" size="large" maxlength="11"><template #prefix><span class="ip-icon">📱</span></template></n-input>
+          </n-form-item>
           <n-form-item label="密码" path="p">
             <n-input v-model:value="f.p" :type="showPwd ? 'text' : 'password'" placeholder="至少6位，建议包含字母+数字+符号" size="large">
               <template #prefix><span class="ip-icon">🔒</span></template>
@@ -60,10 +63,10 @@ import type { FormInst, FormRules } from 'naive-ui'
 
 const router=useRouter();const auth=useAuthStore();const msg=useMessage()
 const fr=ref<FormInst|null>(null);const ld=ref(false);const showPwd=ref(false);const errorMsg=ref('')
-const f=reactive({u:'',e:'',p:'',cp:'',agree:false})
+const f=reactive({u:'',e:'',ph:'',p:'',cp:'',agree:false})
 const r:FormRules={
   u:[{required:true,message:'请输入用户名'},{min:3,max:50,message:'3-50个字符'}],
-  e:[{type:'email',message:'请输入正确的邮箱格式'}],
+  e:[{type:'email',message:'请输入正确的邮箱格式'}],ph:[{pattern:/^1[3-9]\d{9}$/,message:'请输入正确的手机号',trigger:'blur'}],
   p:[{required:true,message:'请输入密码'},{min:6,message:'密码至少6位'}],
   cp:[{required:true,message:'请确认密码'},{validator:(_:any,v:string)=>v===f.p,message:'两次密码不一致',trigger:'blur'}],
   agree:[{validator:(_:any,v:boolean)=>v===true,message:'请同意服务条款',trigger:'change'}],
@@ -78,7 +81,7 @@ const pwStrength = computed(()=>{
 async function reg(){
   const v=await fr.value?.validate().catch(()=>false);if(!v)return
   errorMsg.value='';ld.value=true
-  try{const ok=await auth.register({username:f.u,password:f.p,email:f.e||undefined});ld.value=false;if(ok){msg.success('注册成功！请登录');router.push('/login')}else errorMsg.value='注册失败，用户名可能已存在'}
+  try{const ok=await auth.register({username:f.u,password:f.p,email:f.e||undefined,phone:f.ph||undefined});ld.value=false;if(ok){msg.success('注册成功！请登录');router.push('/login')}else errorMsg.value='注册失败，用户名可能已存在'}
   catch(e:any){ld.value=false;const detail=e?.response?.data?.detail||'';errorMsg.value=detail||'注册失败，请稍后重试';const card=document.querySelector('.form-card');if(card){card.classList.add('shake');setTimeout(()=>card.classList.remove('shake'),500)}}
 }
 </script>

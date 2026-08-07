@@ -15,40 +15,63 @@
         <div class="sc-label">活跃用户</div>
       </div>
       <div class="stat-card">
-        <span class="sc-icon">💬</span>
-        <div class="sc-num">{{ dash?.total_sessions || 0 }}</div>
-        <div class="sc-label">总会话</div>
+        <span class="sc-icon">🗂️</span>
+        <div class="sc-num">{{ dash?.total_assets || 0 }}</div>
+        <div class="sc-label">总素材</div>
       </div>
       <div class="stat-card">
-        <span class="sc-icon">📝</span>
-        <div class="sc-num">{{ dash?.total_messages || 0 }}</div>
-        <div class="sc-label">总消息</div>
+        <span class="sc-icon">🏷️</span>
+        <div class="sc-num">{{ dash?.tagged_assets || 0 }}</div>
+        <div class="sc-label">已标签</div>
       </div>
     </div>
 
-    <!-- Detail cards -->
+    <!-- Asset detail cards -->
     <div class="detail-cards">
       <div class="d-card">
         <h3>📁 素材概览</h3>
         <div class="d-stat">
-          <span class="d-num">{{ assetStats.total }}</span>
-          <span class="d-text">总素材</span>
+          <span class="d-num">{{ dash?.ready_assets || 0 }}</span>
+          <span class="d-text">✅ 就绪</span>
         </div>
         <div class="d-stat">
-          <span class="d-num">{{ assetStats.tagged }}</span>
-          <span class="d-text">已标签</span>
+          <span class="d-num">{{ dash?.processing_assets || 0 }}</span>
+          <span class="d-text">⏳ 处理中</span>
         </div>
-      </div>
-      <div class="d-card good">
-        <h3>👍 正面反馈</h3>
         <div class="d-stat">
-          <span class="d-num large">{{ dash?.feedback?.positive || 0 }}</span>
+          <span class="d-num large">{{ dash?.tagged_percentage || 0 }}%</span>
+          <span class="d-text">标签覆盖率</span>
         </div>
       </div>
-      <div class="d-card warn">
-        <h3>👎 负面反馈</h3>
+      <div class="d-card">
+        <h3>💾 存储概览</h3>
         <div class="d-stat">
-          <span class="d-num large">{{ dash?.feedback?.negative || 0 }}</span>
+          <span class="d-num large">{{ formatSize(dash?.total_storage_bytes || 0) }}</span>
+          <span class="d-text">总存储量</span>
+        </div>
+        <div v-if="dash?.assets_by_type" class="type-bars">
+          <div v-for="(count, type) in dash.assets_by_type" :key="type" class="type-bar-row">
+            <span class="type-label">{{ typeLabel(type) }}</span>
+            <div class="type-bar-track">
+              <div class="type-bar-fill" :style="{ width: pctOfTotal(count) + '%' }" />
+            </div>
+            <span class="type-count">{{ count }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="d-card">
+        <h3>💬 用户反馈</h3>
+        <div class="d-stat good">
+          <span class="d-num">{{ dash?.feedback?.positive || 0 }}</span>
+          <span class="d-text">👍 正面反馈</span>
+        </div>
+        <div class="d-stat warn">
+          <span class="d-num">{{ dash?.feedback?.negative || 0 }}</span>
+          <span class="d-text">👎 负面反馈</span>
+        </div>
+        <div class="d-stat">
+          <span class="d-num">{{ dash?.total_sessions || 0 }}</span>
+          <span class="d-text">📋 总会话</span>
         </div>
       </div>
     </div>
@@ -56,22 +79,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import apiClient from '../api/client'
 
 const dash = ref<any>(null)
-const assetStats = reactive({ total: 0, tagged: 0 })
+
+function formatSize(bytes: number): string {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0; let size = bytes
+  while (size >= 1024 && i < units.length - 1) { size /= 1024; i++ }
+  return `${size.toFixed(1)} ${units[i]}`
+}
+
+function typeLabel(type: string): string {
+  const map: Record<string, string> = { image: '🖼️ 图片', video: '🎬 视频', document: '📄 文档' }
+  return map[type] || type
+}
+
+function pctOfTotal(count: number): number {
+  const total = dash.value?.total_assets || 1
+  return Math.round((count / total) * 100)
+}
 
 onMounted(async () => {
   try {
-    const [dashRes, assetRes] = await Promise.all([
-      apiClient.get('/admin/dashboard'),
-      apiClient.get('/assets/list', { params: { page: 1, page_size: 1 } }),
-    ])
-    dash.value = dashRes.data
-    assetStats.total = assetRes.data.total || 0
-    // Estimate tagged count
-    assetStats.tagged = Math.floor((assetRes.data.total || 0) * 0.6)
+    const res = await apiClient.get('/admin/dashboard')
+    dash.value = res.data
   } catch { /* silent */ }
 })
 </script>
@@ -102,16 +136,24 @@ onMounted(async () => {
   background: var(--bg-card); border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm);
 }
-.d-card.good { background: rgba(16,185,129,.04); border-color: rgba(16,185,129,.1); }
-.d-card.warn { background: rgba(239,68,68,.04); border-color: rgba(239,68,68,.1); }
 .d-card h3 { margin: 0 0 12px; font-size: 14px; color: var(--text-secondary); }
 .d-stat { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.d-stat.good { color: #10B981; }
+.d-stat.warn { color: #F59E0B; }
 .d-num { font-size: 24px; font-weight: 800; color: var(--text-primary); }
+.d-stat.good .d-num { color: #10B981; }
+.d-stat.warn .d-num { color: #F59E0B; }
 .d-num.large { font-size: 36px; }
 .d-text { font-size: 13px; color: var(--text-muted); }
 
+/* Type bars */
+.type-bars { margin-top: 8px; }
+.type-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+.type-label { width: 70px; color: var(--text-secondary); flex-shrink: 0; }
+.type-bar-track { flex: 1; height: 8px; background: var(--bg-surface); border-radius: 4px; overflow: hidden; }
+.type-bar-fill { height: 100%; background: var(--primary-gradient); border-radius: 4px; transition: width .5s var(--ease-smooth); }
+.type-count { width: 30px; text-align: right; color: var(--text-primary); font-weight: 600; }
+
 /* Dark */
 [data-theme="dark"] .stat-card, [data-theme="dark"] .d-card { background: var(--bg-card); border-color: var(--border); }
-[data-theme="dark"] .d-card.good { background: rgba(16,185,129,.06); }
-[data-theme="dark"] .d-card.warn { background: rgba(239,68,68,.06); }
 </style>

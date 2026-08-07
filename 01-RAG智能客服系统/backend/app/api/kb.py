@@ -74,8 +74,14 @@ async def upload_document(
             detail=f"不支持的文件类型 '{ext}'。支持: {', '.join(allowed_extensions)}",
         )
 
-    # Validate file size
-    content = await file.read()
+    # Validate file size — use chunked reading to avoid OOM on large files
+    chunks = []
+    while True:
+        chunk = await file.read(1024 * 1024)  # 1MB chunks
+        if not chunk:
+            break
+        chunks.append(chunk)
+    content = b"".join(chunks)
     if len(content) > settings.max_upload_size_bytes:
         raise HTTPException(
             status_code=400,

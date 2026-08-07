@@ -7,6 +7,7 @@ class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="用户名")
     password: str = Field(..., min_length=6, max_length=100, description="密码")
     email: str | None = Field(None, max_length=100, description="邮箱（可选）")
+    phone: str | None = Field(None, max_length=20, description="手机号（可选）")
     display_name: str | None = Field(None, max_length=100, description="显示名称（可选）")
 
 

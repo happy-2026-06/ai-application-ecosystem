@@ -5,7 +5,8 @@ import { useAuthStore } from '../stores/auth'
 const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 60000,
-  headers: { 'Content-Type': 'application/json' },
+  // 不设默认 Content-Type：JSON 请求 axios 自动加 application/json
+  // FormData 请求浏览器自动加 multipart/form-data; boundary=...
 })
 
 // Request interceptor: attach JWT token

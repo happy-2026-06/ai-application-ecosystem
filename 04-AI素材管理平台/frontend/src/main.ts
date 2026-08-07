@@ -8,17 +8,7 @@ import './assets/styles/main.css'
 const app = createApp(App)
 
 const pinia = createPinia()
-
-// Wrap persistedstate plugin to catch corrupted localStorage data
-try {
-  pinia.use(piniaPluginPersistedstate)
-} catch (e) {
-  console.error('Failed to initialize state persistence, clearing cache...', e)
-  // Clear potentially corrupted data
-  try { localStorage.removeItem('rag-auth') } catch {}
-  // Retry without persistence
-  pinia.use(piniaPluginPersistedstate)
-}
+pinia.use(piniaPluginPersistedstate)
 
 app.use(pinia)
 app.use(router)
@@ -30,4 +20,5 @@ app.config.errorHandler = (err, instance, info) => {
   console.error('Info:', info)
 }
 
+// Force hot module reload — touch to bust Vite cache
 app.mount('#app')

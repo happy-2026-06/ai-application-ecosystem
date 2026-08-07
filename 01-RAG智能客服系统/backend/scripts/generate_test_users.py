@@ -17,7 +17,7 @@ import httpx
 # 确保能找到项目模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-API_BASE = "http://localhost:8000/api"
+API_BASE = "http://localhost:8101/api"
 PASSWORD = "test123456"
 OUTPUT = Path(__file__).parent.parent / "data" / "test_users.json"
 
@@ -44,7 +44,7 @@ async def generate(count: int = 100):
                 else:
                     print(f"  [{i:3d}/{count}] {username}  失败 (HTTP {r.status_code})")
             except httpx.ConnectError:
-                print("\n❌ 无法连接后端，请先启动: python -m uvicorn app.main:app --port 8000")
+                print("\n❌ 无法连接后端，请先启动: python -m uvicorn app.main:app --port 8101")
                 return
             except Exception as e:
                 print(f"  [{i:3d}/{count}] {username}  错误: {e}")

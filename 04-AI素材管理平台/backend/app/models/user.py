@@ -13,6 +13,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     email: Mapped[str] = mapped_column(
         String(100), nullable=True
     )
+    phone: Mapped[str] = mapped_column(
+        String(20), nullable=True
+    )
     hashed_password: Mapped[str] = mapped_column(
         String(255), nullable=False
     )

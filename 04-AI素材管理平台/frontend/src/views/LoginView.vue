@@ -91,7 +91,7 @@
           <n-divider>演示账号</n-divider>
           <div class="demo-tags">
             <n-tag type="info" size="small" round>admin</n-tag>
-            <n-tag type="info" size="small" round style="margin-left:6px;">123456</n-tag>
+            <n-tag type="info" size="small" round style="margin-left:6px;">ChangeMe!2024</n-tag>
           </div>
         </div>
       </div>
@@ -129,6 +129,8 @@ async function handleLogin() {
   try {
     await authStore.login({ username: form.username, password: form.password })
     message.success('登录成功')
+    // 延迟跳转，确保 pinia persist 插件将 token 写入 localStorage
+    await new Promise(r => setTimeout(r, 300))
     router.push((route.query.redirect as string) || '/assets')
   } catch (e: any) {
     const detail = e?.response?.data?.detail || ''

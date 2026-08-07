@@ -2,11 +2,11 @@
 RAG 知识库问答系统 — 压力测试脚本
 =====================================
 用法:
-    locust -f tests/locustfile.py --host=http://localhost:8000
+    locust -f tests/locustfile.py --host=http://localhost:8101
     浏览器打开 http://localhost:8089，输入用户数和增速，开始压测。
 
 无 UI 模式:
-    locust -f tests/locustfile.py --host=http://localhost:8000 \
+    locust -f tests/locustfile.py --host=http://localhost:8101 \
         --users=100 --spawn-rate=10 --run-time=5m \
         --html=reports/stress-report.html
 """

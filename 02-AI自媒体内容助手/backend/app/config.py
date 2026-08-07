@@ -95,7 +95,7 @@ class Settings(BaseSettings):
         default="SM-creator-admin-2024!",
         description="Initial admin password. CHANGE IT after first login!",
     )
-    ADMIN_EMAIL: str = "admin@rag-system.local"
+    ADMIN_EMAIL: str = "admin@selfmedia.local"
 
     # ── Pydantic Config ──────────────────────────────────────────────
     model_config = {

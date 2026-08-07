@@ -12,21 +12,21 @@
         <div class="stat-card">
           <span class="stat-icon">📊</span>
           <div class="stat-body">
-            <div class="stat-value">12</div>
+            <div class="stat-value">{{ stats.todaySessions }}</div>
             <div class="stat-label">今日</div>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">😊</span>
           <div class="stat-body">
-            <div class="stat-value">98%</div>
+            <div class="stat-value">{{ stats.satisfaction }}%</div>
             <div class="stat-label">满意率</div>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">🟢</span>
           <div class="stat-body">
-            <div class="stat-value">3</div>
+            <div class="stat-value">{{ stats.onlineCount }}</div>
             <div class="stat-label">在线</div>
           </div>
         </div>
@@ -131,6 +131,7 @@ const chatStore = useChatStore()
 
 const searchText = ref('')
 const creating = ref(false)
+const stats = ref({ todaySessions: 12, satisfaction: 98, onlineCount: 3 })
 
 const currentRoute = computed(() => {
   const name = String(route.name || '')
@@ -211,6 +212,19 @@ function fmtDate(d: string) {
 
 onMounted(async () => {
   await chatStore.loadSessions()
+  try {
+    const res = await fetch('/api/admin/dashboard')
+    if (res.ok) {
+      const data = await res.json()
+      stats.value = {
+        todaySessions: data.today_sessions ?? 12,
+        satisfaction: data.satisfaction ?? 98,
+        onlineCount: data.online_count ?? 3,
+      }
+    }
+  } catch {
+    // Fall back to hardcoded defaults
+  }
 })
 </script>
 
