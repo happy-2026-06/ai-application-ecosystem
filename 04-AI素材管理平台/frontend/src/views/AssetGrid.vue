@@ -483,15 +483,21 @@ async function loadAssets() {
     if (sortBy.value === 'name') params.sort = 'name'
     else if (sortBy.value === 'size') params.sort = 'size'
 
-    const res = await assetApi.list(params)
-    assets.value = res.data.items
-    totalPages.value = Math.ceil(res.data.total / 24)
-    stats.total = res.data.total
-    stats.tagged = res.data.items.filter((a: AssetItem) => (a.ai_tags || []).length > 0).length
+    const [listRes, statsRes] = await Promise.all([
+      assetApi.list(params),
+      assetApi.getStats(),
+    ])
+    assets.value = listRes.data.items
+    totalPages.value = Math.ceil(listRes.data.total / 24)
+    stats.total = statsRes.data.total
+    stats.tagged = statsRes.data.tagged
+    stats.totalSize = formatSize(statsRes.data.total_size_bytes || 0)
 
-    let totalBytes = 0
-    res.data.items.forEach((a: AssetItem) => { totalBytes += a.file_size || 0 })
-    stats.totalSize = formatSize(totalBytes)
+    // Also refresh sidebar stats
+    try {
+      const authStore = (await import('../stores/auth')).useAuthStore()
+      // sidebar stats are fetched independently in AppLayout
+    } catch {}
   } catch (e) {
     console.error('Load assets failed:', e)
   } finally {
@@ -515,6 +521,12 @@ async function loadStats() {
     stats.tagged = res.data.tagged
     stats.totalSize = formatSize(res.data.total_size_bytes)
   } catch { /* silent */ }
+}
+
+async function refreshAfterChange() {
+  loadAssets()
+  loadPopularTags()
+  loadStats()
 }
 
 function handleSearch() { currentPage.value = 1; loadAssets() }
@@ -616,7 +628,6 @@ async function onFileChange(event: Event) {
   if (successCount > 0) {
     message.success(`上传成功 ${successCount} 个文件，AI 正在生成标签…`)
     loadAssets()
-    loadStats()
     loadPopularTags()
   }
 }
@@ -685,8 +696,7 @@ async function handleDelete(asset: AssetItem) {
     await assetApi.remove(asset.id)
     message.success('已删除')
     closeDetail()
-    loadAssets()
-    loadStats()
+    refreshAfterChange()
   } catch { message.error('删除失败') }
 }
 
@@ -825,9 +835,7 @@ async function handleImportFreePhoto(photo: any) {
     await assetApi.importFromUrl(photo.download_url)
     message.success('素材导入成功！AI 正在生成标签…')
     photo._importing = false
-    loadAssets()
-    loadStats()
-    loadPopularTags()
+    refreshAfterChange()
   } catch (e: any) {
     photo._importing = false
     const detail = e?.response?.data?.detail || '导入失败'
@@ -844,9 +852,7 @@ async function handleUrlImport() {
     message.success('导入成功！AI 正在生成标签…')
     importUrl.value = ''
     importUrlTags.value = ''
-    loadAssets()
-    loadStats()
-    loadPopularTags()
+    refreshAfterChange()
   } catch (e: any) {
     const detail = e?.response?.data?.detail || '导入失败'
     message.error('导入失败: ' + detail)
