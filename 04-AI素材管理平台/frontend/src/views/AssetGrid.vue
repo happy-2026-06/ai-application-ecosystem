@@ -115,7 +115,7 @@
                     <n-input
                       v-model:value="item.editingName"
                       size="small"
-                      placeholder="输入新文件名（不含扩展名）"
+                      placeholder="输入新文件名（不带扩展名）"
                       @keyup.enter="finishRename(item)"
                       @keyup.esc="item.editingName = undefined"
                       style="width: 160px;"
@@ -125,7 +125,7 @@
                   </div>
                   <template v-else>
                     <div class="uq-filename" @click="startRename(item)" title="点击修改文件名">{{ item.customName || item.name }}</div>
-                    <div class="uq-original" v-if="item.customName && item.customName !== item.name">{{ item.name }}</div>
+                    <div class="uq-original" v-if="item.customName && item.customName !== item.name">原名: {{ item.name }}</div>
                   </template>
                 </div>
               </div>
