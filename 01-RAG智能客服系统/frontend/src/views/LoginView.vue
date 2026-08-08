@@ -81,7 +81,7 @@
       <div class="demo-hint">
         <span>演示账号</span>
         <n-tag type="info" size="small">admin</n-tag>
-        <n-tag type="info" size="small">123456</n-tag>
+        <n-tag type="info" size="small">ChangeMe!2024</n-tag>
       </div>
 
       <!-- Footer -->

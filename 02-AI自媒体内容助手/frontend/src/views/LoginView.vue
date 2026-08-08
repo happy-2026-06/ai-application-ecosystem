@@ -90,7 +90,7 @@
       <div class="demo-line">
         <span>演示</span>
         <n-tag type="warning" size="small" round>admin</n-tag>
-        <n-tag type="warning" size="small" round>123456</n-tag>
+        <n-tag type="warning" size="small" round>ChangeMe!2024</n-tag>
       </div>
     </div>
 
