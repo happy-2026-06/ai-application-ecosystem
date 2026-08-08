@@ -95,30 +95,52 @@
           </div>
         </div>
 
-        <!-- 上传进度队列（文件名可点击编辑 → 改名上传） -->
-        <div v-if="uploadQueue.length > 0" class="upload-queue fade-in">
-          <div v-for="(item, idx) in uploadQueue" :key="idx" class="upload-item">
-            <div v-if="item.editingName !== undefined" class="uq-edit-row">
-              <n-input
-                v-model:value="item.editingName"
-                size="small"
-                placeholder="输入新文件名（不含扩展名）"
-                @keyup.enter="finishRename(item)"
-                @keyup.esc="item.editingName = undefined"
-                style="width: 180px;"
-              />
-              <n-button size="tiny" type="primary" @click="finishRename(item)">✓</n-button>
-              <n-button size="tiny" @click="item.editingName = undefined">✕</n-button>
+        <!-- 上传进度面板（可折叠） -->
+        <div v-if="uploadQueue.length > 0" class="upload-panel fade-in">
+          <div class="up-header" @click="uploadPanelOpen = !uploadPanelOpen">
+            <div class="up-header-left">
+              <span class="up-toggle">{{ uploadPanelOpen ? '▼' : '▶' }}</span>
+              <span class="up-title">📤 上传进度</span>
+              <span class="up-summary">{{ uploadDoneCount }}/{{ uploadQueue.length }} 完成</span>
             </div>
-            <span v-else class="uq-file" @click="startRename(item)" title="点击修改文件名">📄 {{ item.customName || item.name }}</span>
-            <n-progress
-              :percentage="item.progress"
-              :status="item.status === 'error' ? 'error' : item.status === 'done' ? 'success' : 'default'"
-              :height="16"
-              :border-radius="8"
-              style="flex: 1; margin: 0 12px;"
-            />
-            <span class="uq-status">{{ item.statusText }}</span>
+            <n-button text size="tiny" @click.stop="clearDoneUploads" v-if="uploadDoneCount > 0">清除已完成</n-button>
+          </div>
+          <div v-show="uploadPanelOpen" class="up-body">
+            <div v-for="(item, idx) in uploadQueue" :key="idx" class="upload-item">
+              <div class="uq-left">
+                <img v-if="item.previewUrl" :src="item.previewUrl" class="uq-thumb" />
+                <span v-else class="uq-icon">{{ item.icon }}</span>
+                <div class="uq-name-area">
+                  <div v-if="item.editingName !== undefined" class="uq-edit-row">
+                    <n-input
+                      v-model:value="item.editingName"
+                      size="small"
+                      placeholder="输入新文件名（不含扩展名）"
+                      @keyup.enter="finishRename(item)"
+                      @keyup.esc="item.editingName = undefined"
+                      style="width: 160px;"
+                    />
+                    <n-button size="tiny" type="primary" @click="finishRename(item)">✓</n-button>
+                    <n-button size="tiny" @click="item.editingName = undefined">✕</n-button>
+                  </div>
+                  <template v-else>
+                    <div class="uq-filename" @click="startRename(item)" title="点击修改文件名">{{ item.customName || item.name }}</div>
+                    <div class="uq-original" v-if="item.customName && item.customName !== item.name">{{ item.name }}</div>
+                  </template>
+                </div>
+              </div>
+              <div class="uq-right">
+                <n-progress
+                  :percentage="item.progress"
+                  :status="item.status === 'error' ? 'error' : item.status === 'done' ? 'success' : 'default'"
+                  :height="12"
+                  :border-radius="6"
+                  :show-indicator="false"
+                  style="flex: 1;"
+                />
+                <span class="uq-status" :class="'uq-' + item.status">{{ item.statusText }}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -182,6 +204,10 @@
                   v-for="t in (asset.ai_tags || asset.tags || ['未分类']).slice(0, 3)"
                   :key="t" size="tiny" :bordered="false"
                 >{{ t }}</n-tag>
+              </div>
+              <div class="ac-actions">
+                <n-button text size="tiny" type="primary" @click.stop="openPreview(asset)" title="预览">🔍</n-button>
+                <n-button text size="tiny" @click.stop="handleDownload(asset)" title="下载">⬇</n-button>
               </div>
             </div>
           </div>
@@ -254,11 +280,50 @@
           <div class="info-row"><span>上传时间</span><span>{{ formatDate(selectedAsset.created_at) }}</span></div>
         </div>
         <div class="detail-actions">
-          <n-button block secondary @click="handleDownload(selectedAsset)">⬇ 下载</n-button>
-          <n-button block type="error" @click="handleDelete(selectedAsset)" style="margin-top: 8px;">🗑 删除</n-button>
+          <n-button block type="primary" @click="openPreview(selectedAsset)">🔍 预览</n-button>
+          <n-button block secondary @click="handleDownload(selectedAsset)" style="margin-top: 6px;">⬇ 下载</n-button>
+          <n-button block type="error" @click="handleDelete(selectedAsset)" style="margin-top: 6px;">🗑 删除</n-button>
         </div>
       </aside>
     </div>
+
+    <!-- ═══ 预览弹窗 ═══ -->
+    <n-modal v-model:show="showPreview" preset="card" :title="'🔍 ' + (previewAsset?.filename || '预览')" size="huge" style="max-width: 1100px; width: 90vw; height: 85vh;" :mask-closable="true">
+      <template #header-extra>
+        <n-button text size="small" @click="showPreview = false">✕ 关闭</n-button>
+      </template>
+      <div class="preview-body">
+        <!-- 图片 -->
+        <div v-if="isImage(previewAsset)" class="preview-image-wrapper">
+          <img :src="authUrl(previewAsset?.id || '') || undefined" :alt="previewAsset?.filename" class="preview-img" />
+        </div>
+        <!-- 文档等非图片 — 信息展示 -->
+        <div v-else class="preview-doc">
+          <div class="preview-doc-icon">{{ typeIcon(previewAsset?.file_type || '') }}</div>
+          <h3>{{ previewAsset?.filename }}</h3>
+          <div class="preview-meta">
+            <div class="pm-row"><span>类型</span><span>{{ previewAsset?.file_type }}</span></div>
+            <div class="pm-row"><span>大小</span><span>{{ formatSize(previewAsset?.file_size || 0) }}</span></div>
+            <div class="pm-row"><span>状态</span><span>{{ previewAsset?.status }}</span></div>
+            <div class="pm-row"><span>版本</span><span>v{{ previewAsset?.version }}</span></div>
+            <div class="pm-row"><span>上传时间</span><span>{{ formatDate(previewAsset?.created_at || '') }}</span></div>
+          </div>
+          <div class="preview-tags">
+            <h4>🏷️ 标签</h4>
+            <n-tag v-for="t in (previewAsset?.ai_tags || [])" :key="t" type="info" size="small" style="margin: 2px;">{{ t }}</n-tag>
+            <n-tag v-for="t in (previewAsset?.tags || [])" :key="t" type="success" size="small" style="margin: 2px;">{{ t }}</n-tag>
+            <span v-if="!(previewAsset?.ai_tags || []).length && !(previewAsset?.tags || []).length" class="no-data">暂无标签</span>
+          </div>
+          <div v-if="previewAsset?.ai_description" class="preview-desc">
+            <h4>📝 AI 描述</h4>
+            <p>{{ previewAsset?.ai_description }}</p>
+          </div>
+          <div class="preview-doc-actions">
+            <n-button type="primary" @click="handleDownload(previewAsset!)">⬇ 下载文件</n-button>
+          </div>
+        </div>
+      </div>
+    </n-modal>
 
     <!-- ═══ Free Stock Photo Modal ═══ -->
     <n-modal v-model:show="showFreeStockModal" preset="card" title="🌐 免费图库 — Lorem Picsum" size="huge" style="max-width: 900px;" :mask-closable="true">
@@ -328,9 +393,12 @@ const stats = reactive({ total: 0, tagged: 0, totalSize: '0 B' })
 // ── Upload queue ──
 interface UploadItem {
   name: string; customName?: string; editingName?: string; file: File;
+  previewUrl?: string; icon: string;
   progress: number; status: 'pending' | 'uploading' | 'done' | 'error'; statusText: string
 }
 const uploadQueue = ref<UploadItem[]>([])
+const uploadPanelOpen = ref(true)
+const uploadDoneCount = ref(0)
 
 // ── Inline editing ──
 const isEditingName = ref(false); const editNameValue = ref('')
@@ -357,6 +425,10 @@ const freeStockPage = ref(1)
 const importUrl = ref('')
 const importUrlTags = ref('')
 const urlImporting = ref(false)
+
+// ── Preview modal ──
+const showPreview = ref(false)
+const previewAsset = ref<AssetItem | null>(null)
 
 // ── Helpers ──
 function typeIcon(type: string): string {
@@ -482,12 +554,23 @@ async function onFileChange(event: Event) {
   for (const file of files) {
     // Strip extension for display name
     const baseName = file.name.replace(/\.[^.]+$/, '')
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    const isImg = ['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext)
+    const isVid = ['mp4','mov','avi','webm','mkv'].includes(ext)
+    const icon = isImg ? '🖼️' : isVid ? '🎬' : '📄'
+    let previewUrl: string | undefined
+    if (isImg) {
+      previewUrl = URL.createObjectURL(file)
+    }
     const item: UploadItem = {
       name: file.name, customName: baseName, file: file,
+      previewUrl, icon,
       progress: 0, status: 'pending', statusText: '等待中…',
     }
     uploadQueue.value.push(item)
   }
+
+  uploadPanelOpen.value = true
 
   // Process uploads sequentially so each can have its own name
   let successCount = 0; let failCount = 0
@@ -516,11 +599,18 @@ async function onFileChange(event: Event) {
     }
   }
 
+  // Clean up preview URLs
+  for (const item of uploadQueue.value) {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+  }
+
   input.value = ''
+  updateUploadCounts()
 
   // Remove done/error items after 3s
   setTimeout(() => {
     uploadQueue.value = uploadQueue.value.filter(u => u.status === 'uploading' || u.status === 'pending')
+    updateUploadCounts()
   }, 3000)
 
   if (successCount > 0) {
@@ -529,6 +619,15 @@ async function onFileChange(event: Event) {
     loadStats()
     loadPopularTags()
   }
+}
+
+function updateUploadCounts() {
+  uploadDoneCount.value = uploadQueue.value.filter(u => u.status === 'done').length
+}
+
+function clearDoneUploads() {
+  uploadQueue.value = uploadQueue.value.filter(u => u.status !== 'done' && u.status !== 'error')
+  updateUploadCounts()
 }
 
 // ── Upload queue rename ──
@@ -684,6 +783,12 @@ function clearImageSearch() {
   }
 }
 
+// ── Preview ──
+function openPreview(asset: AssetItem) {
+  previewAsset.value = asset
+  showPreview.value = true
+}
+
 // ── Init ──
 onMounted(() => {
   loadAssets()
@@ -807,16 +912,64 @@ async function handleUrlImport() {
 .is-preview-img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
 .is-preview-name { flex: 1; font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ═══ Upload Queue ═══ */
-.upload-queue { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-.upload-item {
-  display: flex; align-items: center; padding: 10px 14px;
-  background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-light);
+/* ═══ Upload Panel ═══ */
+.upload-panel {
+  margin-bottom: 16px;
+  background: var(--bg-card); border-radius: 14px;
+  border: 1px solid var(--border-light); overflow: hidden;
 }
-.uq-file { font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; cursor: pointer; border-bottom: 1px dashed transparent; transition: all .15s; }
-.uq-file:hover { color: var(--primary); border-bottom-color: var(--primary); }
+.up-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; cursor: pointer; user-select: none;
+  background: var(--bg-surface); transition: background .15s;
+}
+.up-header:hover { background: var(--primary-light); }
+.up-header-left { display: flex; align-items: center; gap: 8px; }
+.up-toggle { font-size: 10px; color: var(--text-muted); }
+.up-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.up-summary { font-size: 12px; color: var(--text-muted); }
+.up-body { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.upload-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-surface); border-radius: 10px; border: 1px solid var(--border-light);
+}
+.uq-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.uq-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.uq-icon { font-size: 22px; flex-shrink: 0; }
+.uq-name-area { min-width: 0; }
+.uq-filename { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; cursor: pointer; border-bottom: 1px dashed transparent; transition: all .15s; }
+.uq-filename:hover { color: var(--primary); border-bottom-color: var(--primary); }
+.uq-original { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 .uq-edit-row { display: flex; align-items: center; gap: 4px; }
-.uq-status { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.uq-right { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.uq-status { font-size: 12px; white-space: nowrap; font-weight: 600; }
+.uq-done { color: #10B981; }
+.uq-error { color: #EF4444; }
+.uq-uploading { color: var(--primary); }
+.uq-pending { color: var(--text-muted); }
+
+/* ═══ Card actions ═══ */
+.ac-actions {
+  display: flex; gap: 2px; margin-top: 4px; padding-top: 4px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* ═══ Preview Modal ═══ */
+.preview-body { height: calc(85vh - 120px); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.preview-image-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--bg-body); border-radius: 12px; }
+.preview-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+.preview-doc { width: 100%; max-width: 600px; text-align: center; overflow-y: auto; max-height: 100%; }
+.preview-doc-icon { font-size: 72px; margin-bottom: 12px; }
+.preview-doc h3 { margin: 0 0 16px; font-size: 18px; color: var(--text-primary); word-break: break-word; }
+.preview-meta { text-align: left; margin-bottom: 16px; }
+.pm-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border-light); }
+.pm-row span:first-child { color: var(--text-muted); }
+.pm-row span:last-child { color: var(--text-primary); font-weight: 500; }
+.preview-tags, .preview-desc { text-align: left; margin-bottom: 16px; }
+.preview-tags h4, .preview-desc h4 { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.preview-desc p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.preview-doc-actions { margin-top: 16px; }
 
 /* ═══ Grid Area ═══ */
 .asset-grid-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; background: var(--bg-body); }
@@ -945,7 +1098,10 @@ async function handleUrlImport() {
 [data-theme="dark"] .image-search-dropzone { background: var(--bg-surface); border-color: var(--border); }
 [data-theme="dark"] .image-search-dropzone:hover { background: var(--primary-light); }
 [data-theme="dark"] .image-search-preview { background: var(--bg-card); border-color: var(--border); }
-[data-theme="dark"] .upload-item { background: var(--bg-card); border-color: var(--border); }
+[data-theme="dark"] .upload-panel { background: var(--bg-card); border-color: var(--border); }
+[data-theme="dark"] .up-header { background: var(--bg-surface); }
+[data-theme="dark"] .upload-item { background: var(--bg-surface); border-color: var(--border); }
+[data-theme="dark"] .preview-image-wrapper { background: var(--bg-body); }
 
 /* ═══ Free Stock Modal ═══ */
 .url-import-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
