@@ -74,14 +74,14 @@ async def _read_file(file_path: str, file_type: str) -> str:
     if not file_path or not isinstance(file_path, str):
         raise ValueError("Invalid file path")
 
-    # Try langchain loader first
+    # Try langchain loader first — catch ALL exceptions
     try:
         from app.rag.loader import load_document
         docs = await asyncio.to_thread(load_document, file_path, file_type)
         if docs:
             return "\n\n".join(d.page_content for d in docs if d.page_content)
     except Exception as e:
-        logger.warning("LangChain loader failed, trying raw read: %s", e)
+        logger.warning("LangChain loader failed (will use raw read): %s", e)
 
     # Fallback: raw file reading
     content = await asyncio.to_thread(_raw_read, file_path)
