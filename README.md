@@ -55,6 +55,15 @@ cd 02-AI自媒体内容助手 && start.bat
 - 🎧转人工客服 API + 工单生成
 - ChatView：返回首页清除会话、切换防闪烁、消息编辑/删除
 - 404捕获路由 + LoginView完整暗色模式
+- **知识库管理增强**：
+  - 文档上传即处理（同步完成，不再等待）
+  - 支持 txt/md/csv/docx/pdf 在线预览
+  - 上传后支持重命名（inline 编辑）
+  - GBK 文件名自动修复（Windows 浏览器乱码问题）
+  - 容器重启自动恢复（pending 文档自动重新处理）
+  - Docker 数据卷持久化（uploads + chroma）
+- **DeepSeek API**：全项目统一配置，RAG 回复基于真实知识库
+- **知识库文档**：支持 4 种格式（txt/md/docx/pdf），Word 文档自动解析
 
 ### 项目② AI自媒体内容助手
 - 顶部导航 + Dashboard首页 + 创作工作台
@@ -63,6 +72,16 @@ cd 02-AI自媒体内容助手 && start.bat
 - Dashboard：快速创作 + 最近会话 + 实时统计 + 热门模板
 - SSE流式生成 + sessionId历史加载
 - 字体优化（Inter 32px/800 h1, 15px body）
+- DeepSeek API 已配置
+
+### 项目③ AI短视频脚本工坊
+- 分镜脚本 + 口播话术生成
+- DeepSeek API 已配置
+
+### 项目④ AI素材管理平台
+- B端 DAM 平台，素材上传/管理/检索
+- Glassmorphism + Indigo 品牌主题
+- DeepSeek API 已配置
 
 ## 仓库
 

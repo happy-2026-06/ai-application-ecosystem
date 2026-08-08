@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,8 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.api import api_router
+
+logger = logging.getLogger(__name__)
 
 # ── Rate limiter ──────────────────────────────────────────────────────
 limiter = Limiter(
@@ -45,6 +48,56 @@ async def lifespan(app: FastAPI):
                 print(f"[OK] Loaded {count} chunks from sample documents")
         except Exception as e:
             print(f"[WARN] Could not load sample data: {e}")
+
+    # Re-index completed documents into in-memory retriever (survives container restart)
+    # Runs on EVERY startup, not just DEBUG mode
+    try:
+        from app.rag.simple_retriever import add_document_chunks
+        from app.rag.simple_retriever import get_doc_count as inmem_count
+        from app.rag.simple_retriever import _split_text
+        from app.services.kb_service import _read_file, process_document_async
+        from sqlalchemy import select
+        from app.models.document import Document
+
+        async with AsyncSessionLocal() as db:
+            # ── Step 1: Recover stuck documents (pending/processing → retry) ──
+            stuck_result = await db.execute(
+                select(Document).where(
+                    Document.status.in_(["pending", "processing"])
+                )
+            )
+            stuck_docs = stuck_result.scalars().all()
+            if stuck_docs:
+                print(f"[STARTUP] Found {len(stuck_docs)} stuck documents, re-processing...")
+                for doc in stuck_docs:
+                    print(f"[STARTUP] Re-processing: {doc.original_name}")
+                    try:
+                        await process_document_async(doc.id, db)
+                        print(f"[STARTUP] Recovered: {doc.original_name}")
+                    except Exception as proc_err:
+                        print(f"[STARTUP] Failed to recover {doc.original_name}: {proc_err}")
+
+            # ── Step 2: Re-index all completed documents into in-memory retriever ──
+            completed_result = await db.execute(
+                select(Document).where(Document.status == "completed")
+            )
+            completed_docs = completed_result.scalars().all()
+            print(f"[STARTUP] Found {len(completed_docs)} completed documents in DB")
+            for doc in completed_docs:
+                if doc.file_path and os.path.isfile(doc.file_path):
+                    try:
+                        content = await _read_file(doc.file_path, doc.file_type)
+                        if content and content.strip():
+                            chunks = _split_text(content)
+                            add_document_chunks(chunks, doc_id=doc.id, doc_name=doc.original_name)
+                            print(f"[STARTUP] Re-indexed {doc.original_name}: {len(chunks)} chunks")
+                    except Exception as read_err:
+                        print(f"[STARTUP] Failed to read {doc.original_name}: {read_err}")
+            print(f"[STARTUP] In-memory retriever: {inmem_count()} total chunks")
+    except Exception as e:
+        import traceback
+        print(f"[STARTUP] Could not re-index documents: {e}")
+        traceback.print_exc()
 
     # Security warning on startup if dev defaults are in use
     if "change-me" in settings.SECRET_KEY or "change-me" in settings.JWT_SECRET_KEY:

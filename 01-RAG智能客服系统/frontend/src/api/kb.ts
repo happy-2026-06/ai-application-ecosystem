@@ -41,6 +41,13 @@ export const kbApi = {
   reprocessDocument(docId: string) {
     return apiClient.post(`/kb/documents/${docId}/reprocess`)
   },
+  renameDocument(docId: string, originalName: string) {
+    const formData = new FormData()
+    formData.append('original_name', originalName)
+    return apiClient.patch(`/kb/documents/${docId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   getStats() {
     return apiClient.get<KBStats>('/kb/stats')
   },

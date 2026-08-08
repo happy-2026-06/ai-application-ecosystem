@@ -47,6 +47,9 @@ services:
     env_file: ./01-RAG智能客服系统/backend/.env.docker
     ports:
       - "8101:8000"
+    volumes:
+      - p1_uploads:/app/data/uploads
+      - p1_chroma:/app/data/chroma
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,3 +186,5 @@ services:
 volumes:
   postgres_data:
   p4_uploads:
+  p1_uploads:
+  p1_chroma:
