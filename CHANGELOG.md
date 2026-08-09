@@ -218,7 +218,7 @@
 | 项目 | 状态 | 特色 |
 |------|:--:|------|
 | ③ 短视频脚本工坊 | 🟡 框架已建 | 分镜表 + 口播稿 + 拍摄建议 + B-roll 模板 |
-| ④ 素材管理平台 | 🟢 较完善 | 上传/标签/搜索/版本、Glassmorphism + Indigo 主题、统计API合并 |
+| ④ 素材管理平台 | 🟢 较完善 | 上传/标签/搜索/版本、Glassmorphism + Indigo 主题、原生上传替代组件库、图片预览、LLM打标 |
 | ⑤ 销售培训 | 🟡 框架已建 | AI 扮演客户 + 角色扮演 + 多维度打分 |
 | ⑥ 数据中心 | 🟡 框架已建 | 数据底座，为其他项目提供数据支撑 |
 | ⑦ 多智能体 | 🟡 框架已建 | 多 Agent 协作调度 |
@@ -256,5 +256,191 @@
 
 ---
 
-*最后更新: 2026-08-09 (新增难点8-11 + 面试预案补充)*
-*完整记录: README.md (项目列表+端口+启动方式) / CLAUDE.md (各项目开发手册) / ARCHIVE.md (项目①②详细存档)*
+---
+## 九、项目①-④ 全面安全审计 & 修复（2026/8/9）
+
+> 对已完成的4个项目进行系统性代码审查，发现并修复 6 个严重 + 4 个高危 + 12 个中危 + 18 个低危问题。
+
+### 发现的关键问题
+
+| 严重度 | 数量 | 典型问题 |
+|--------|:--:|------|
+| 🔴 严重 | 6 | API Key 明文泄露(4项目)、项目④文件端点无认证、项目④导入错误 |
+| 🟠 高危 | 4 | 弱密码/弱密钥、无暴力破解防护、CORS 端口不匹配 |
+| 🟡 中危 | 12 | session.py 注释错误、system.py PUT 参数不规范、package.json 命名残留 |
+| ⚪ 低优 | 18 | 未使用依赖、CSS 注释错误、locustfile 端口硬编码 |
+
+---
+
+### 难点 12：change-me-in-production 占位符 → 全项目密钥分离
+
+| 项 | 内容 |
+|------|------|
+| **背景** | 审查发现 8 个 `.env`/`.env.docker` 文件中全部硬编码了真实 DeepSeek API Key（`sk-dfb0b6...`）+ 智谱 API Key（项目③），且 SECRET_KEY/JWT_SECRET_KEY 使用 `dev-secret-key`/`rag-jwt-secret-key` 等弱密钥 |
+| **为什么危险** | `.env` 虽在 `.gitignore` 中，但 `.env.docker` 未被忽略（项目③）。一旦上传 Git，攻击者可无成本调用 API。而且所有项目共享同一个 API Key——一个项目泄露，全部沦陷 |
+| **解决** | ① 替换所有真实 Key 为占位符（`your-deepseek-api-key-here`）② SECRET_KEY/JWT_SECRET_KEY 统一改为 `change-me-in-production-please`/`change-me-jwt-secret-please` ③ ADMIN_PASSWORD 从 `123456` 改为 `ChangeMe!2024` ④ 每个 `.env` 旁创建 `.env.example` 模板 ⑤ 根 `.gitignore` + 项目③ `.gitignore` 添加 `.env.docker` |
+| **面试要点** | 这是一个**最小权限原则**的实践：开发环境也不应该用真实密钥——用占位符 + 文档说明去哪里申请。部署时通过 CI/CD 环境变量注入 |
+
+### 难点 13：seed_admin_user 密码不同步 → 改 .env 后登录失败
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 改了 `.env` 中 `ADMIN_PASSWORD=ChangeMe!2024`，重启后端后用新密码登录失败；换旧密码 `123456` 反而能登录 |
+| **排查过程** | ① 确认 `.env` 文件已保存 ② 确认 `config.py` 正确加载了新值（断点验证 `settings.ADMIN_PASSWORD`）③ 搜代码发现 `seed_admin_user()` 第 165 行：`if admin is None:` 只在用户不存在时创建——**已有用户不更新密码**！|
+| **根因** | 原设计逻辑："密码只在首次创建时写入，之后由 Web UI 修改" → 但开发者改 `.env` 后预期密码跟配置走。这是一个**数据一致性假设错误**——代码假设 DB 是真相源，用户假设 .env 是真相源 |
+| **解决** | 修改 `seed_admin_user()`：在 `else` 分支中加入 `verify_password(settings.ADMIN_PASSWORD, admin.hashed_password)` 检测，配置变更时自动重哈希并更新 DB。4 个项目全部修复 |
+| **教训** | 配置驱动的值（.env）与状态驱动的值（DB）之间的一致性是需要主动维护的。不要假设"用户会通过 UI 改密码"——给开发者一个通过 .env 改密码的快速通道，然后**启动时自动同步** |
+
+### 难点 14：项目④文件端点无认证 → 任意下载任意素材
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 审查时发现 `GET /api/assets/{asset_id}/file` 没有 `Depends(get_current_user)` 依赖 |
+| **危害** | 任何人只要知道或猜到一个素材 ID（UUID），就能直接下载文件。对于 B 端 DAM 系统，素材往往是商业机密——这是**越权访问**漏洞 |
+| **根因** | 所有 5 个 CRUD 端点中，4 个加了认证，唯独文件下载端点漏掉了——典型的**复制粘贴后忘记加认证** |
+| **解决** | 添加 `current_user: User = Depends(get_current_user)` 到函数签名 |
+| **面试要点** | 安全审查不是玄学——就是逐行检查每个端点的认证依赖。用 checklist 方式：这个端点是否需要登录？→ 有没有 Depends？→ 有没有所有权检查？ |
+
+### 难点 15：项目④ forgot-password 用户枚举漏洞
+
+| 项 | 内容 |
+|------|------|
+| **现象** | `forgot-password` 接口返回的 `hint` 字段区分了"用户存在"和"用户未注册"两种不同信息 |
+| **危害** | 攻击者可以批量探测哪些用户名已在系统中注册（用户枚举），为后续暴力破解缩小范围 |
+| **解决** | 移除 `hint` 字段，统一返回 `"如果该账号存在，密码重置链接已发送到注册邮箱"`——无论用户是否存在都返回相同消息 |
+| **教训** | 忘记密码是**安全敏感**端点。正确的做法：始终返回成功消息 + 内部记录日志，不能给外部任何关于"用户是否存在"的信息 |
+
+### 难点 16：项目④导入错误 → AI 打标静默失败
+
+| 项 | 内容 |
+|------|------|
+| **现象** | `backend/app/api/assets.py` 第 127 行 `from app.rag.chain import get_llm_client`——但 `chain.py` 中函数名是 `get_llm`，不是 `get_llm_client` |
+| **后果** | AI 自动打标功能上传后触发 `ImportError` → 被 try/except 静默吞掉 → 降级到关键词匹配打标。功能看起来"能用"但 AI 标签质量很差 |
+| **教训** | 宽泛的 `except Exception` 会掩盖导入错误。关键路径的异常应该**分级处理**：`ImportError` 和其他异常分开，前者应该 fail-fast 而非静默降级 |
+
+### 本次修复的其他优化
+
+| 类别 | 改动 | 影响 |
+|------|------|------|
+| **配置规范化** | `package.json` name 从 `rag-frontend` → 各项目独立名称（`selfmedia-frontend`/`videofactory-frontend`/`asset-dam-frontend`） | ②③④ |
+| **端口修复** | `locustfile.py` 压测端口、`generate_test_users.py` API 端口全部对齐各自项目 | ①②④ |
+| **依赖清理** | 移除未使用的 `date-fns`、`highlight.js`、`@vicons/ionicons5` | ①②③④ |
+| **注释修正** | `session.py` 中 DELETE 模式注释 → 实际使用的 WAL 模式说明 | ①②③④ |
+| **API 规范化** | `system.py` PUT 端点从 query 参数 → Pydantic `ConfigUpdateRequest` body + Field 校验 | ①②③ |
+| **CSS 修正** | `main.css` 顶部注释从"AI短视频脚本工坊" → 各自正确的项目名 | ①② |
+| **知识库样本** | 项目② `generate_cs_samples.py` 从电商 FAQ → 自媒体内容（标题模板/脚本模板/平台风格/爆款案例） | ② |
+| **侧边栏实时化** | 项目① `AppLayout.vue` 统计卡片从硬编码 → `onMounted` 动态拉取 API | ① |
+| **大文件 OOM** | 项目① `kb.py` 上传从 `await file.read()` → 1MB 分块读取 | ① |
+| **内存队列标注** | 项目① `HUMAN_AGENT_QUEUE` 添加"生产环境应迁移到 DB"注释 | ① |
+| **弱密码启动警告** | 项目④ `main.py` 启动检查扩展覆盖常见弱密码（123456/password/admin） | ④ |
+| **DB 命名** | 项目④ `DATABASE_URL_SYNC` 默认值 `rag_system.db` → `assetmgmt.db` | ④ |
+| **邮箱域名** | 项目② `ADMIN_EMAIL` 从 `rag-system.local` → `selfmedia.local` | ② |
+| **启动文宣** | 4个项目 `start.py` 标题/文案对齐到正确的项目名称 | ①②③④ |
+
+### 代码审查的通用教训（面试用）
+
+| 教训 | 说明 |
+|------|------|
+| **每个端点都要加认证** | 不能假设"其他端点都有，这个也应该有"——必须肉眼逐行确认 |
+| **安全信息不能区分回显** | 忘记密码/登录失败这类接口，无论用户是否存在都返回相同消息 |
+| **配置 ≠ 数据库** | .env 改了但 DB 里是旧值的场景很常见——启动时做同步，不要假设一致性 |
+| **except Exception 是双刃剑** | 它能防止服务崩溃，但会掩盖 ImportError/NameError 这类该 fail-fast 的错误 |
+| **复制粘贴是 bug 工厂** | 项目②的 generate_cs_samples 是项目①的、CSS 注释写的是项目③——跨项目复用代码时必须检查上下文 |
+
+---
+
+## 十、SSE 流式响应实现细节（面试加分）
+
+| 项 | 内容 |
+|------|------|
+| **后端实现** | FastAPI `StreamingResponse` + `text/event-stream` MIME 类型 + `async generator` 逐 token 产出 |
+| **事件协议** | 5 种事件类型：`thinking`（状态）、`retrieving`（检索中）、`token`（流式文字）、`sources`（引用来源）、`done`（完成+统计） |
+| **前端实现** | 原生 `fetch()` + `ReadableStream` 手动解析 `data:` 行，配合 `AbortController` 支持取消 |
+| **容错设计** | 三层回退：ChromaDB 向量搜索 → 简单关键词搜索 → 开发模式 mock 回答；`MOCK_LLM` 环境变量支持无 API 压测 |
+| **清理管道** | `_clean_llm_output()` 用正则移除 LangChain 流式输出的内部 artifact（AIMessageChunk repr 片段、run ID 等） |
+| **性能** | DB 中 `message_count` 用 `SELECT COUNT(*)` 计算而非客户端 +2，避免并发下计数漂移 |
+
+---
+
+*最后更新: 2026-08-09 (新增难点12-16：安全审计修复 + SSE 实现细节 + 项目④完整记录)*
+*完整记录: README.md (项目列表+端口+启动方式) / CLAUDE.md (各项目开发手册)*
+
+---
+
+## 十一、项目④ AI素材管理平台 — 全面优化记录
+
+### 4.1 项目定位
+8个项目组合中**唯一的B2B企业级产品**（DAM 数字资产管理），填补C端(①②③)和B端之间的空白。
+
+### 4.2 设计系统
+| 项 | 值 |
+|------|------|
+| 主色 | `#6366F1` (Indigo/靛蓝) |
+| 渐变 | `#6366F1 → #A855F7` |
+| 侧边栏 | `#0F0B1E → #1A1230 → #0D0828` 深邃紫黑 |
+| 暗色模式 | 主背景 `#0A0812`，卡片 `#12101A` |
+
+### 4.3 前端 Glassmorphism 视觉重构（5个页面）
+
+| 页面 | 改动 |
+|------|------|
+| **LoginView** | 12个浮动粒子 + 左侧功能列表 hover 动画 + 右侧玻璃拟态卡片(`backdrop-filter: blur(20px)`) + 登录按钮渐变+shimmer流光动画 + 密码可见性切换 + 错误类型区分(🚫/🔑/⛔) |
+| **RegisterView** | 8个背景粒子 + 玻璃卡片 + 密码强度指示器(红/黄/绿三色进度条) + 确认密码✅/❌实时校验 + 品牌图标前缀 |
+| **AssetGrid** | 原生`<input type="file">`替代 NaiveUI `n-upload` + 真实图片预览(`<img>` + `object-fit: cover`) + 三排序(时间/名称/大小) + hover缩放 |
+| **SettingsView** | 40个emoji头像选择器 + 靛蓝主题突出选中态 |
+| **AdminDashboard** | 4统计卡片(grid布局) + 素材概览区 + 正负反馈卡片 + 双API数据源(`/admin/dashboard`+`/assets/list`) |
+
+### 4.4 后端升级
+
+| 项 | 改动 |
+|------|------|
+| 认证对齐①②③ | `TokenResponse` 添加 `user` 字段、登录错误分三档("用户不存在"/"密码错误"/"账户禁用")、新增 `forgot-password` + `reset-password` + `escalate` 端点 |
+| AI打标 | 从 mock 关键词匹配 → LLM 驱动（DeepSeek 分析文件名+类型，返回3-5个中文标签+描述） |
+| 图片预览 | 新增 `GET /api/assets/{id}/file` 文件服务端点 |
+| Docker | 添加 `p4_uploads` 命名卷持久化上传文件 |
+
+### 4.5 跨项目关联
+- 项目②(自媒体)生成的图文素材 → 可导入项目④统一管理
+- 项目①(客服)的知识库图片 → 由项目④统一管理版本
+- 项目③(脚本)的分镜参考素材 → 关联项目④的素材库
+- 共享 PostgreSQL，独立 database `assetmgmt`
+
+### 4.6 关键 Bug 修复
+
+#### 难点 17：NaiveUI `n-upload` 组件与自定义上传冲突 → 422
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 浏览器上传素材始终返回 422 Unprocessable Entity，curl 测试却正常 |
+| **排查过程** | ① curl 直连后端 8400 端口 → 200 OK ② curl 通过 nginx 3004 → 200 OK ③ 浏览器上传 → 422 Field required ④ 后端日志：`"Field required" loc:["body","file"]`——没收到 file 字段 ⑤ 发现 axios 实例设有默认 `Content-Type: application/json`，FormData 上传时这个头会覆盖浏览器自动生成的 `multipart/form-data; boundary=xxx` ⑥ 去掉默认头后仍 422——排查第二步：NaiveUI `n-upload` 默认 `defaultUpload: true`，组件内部尝试用自己 XHR 上传（没有设 `action` 属性），文件状态混乱 |
+| **根因** | 两层问题叠加：(1) axios 默认 `Content-Type: application/json` 覆盖了 FormData boundary (2) NaiveUI `n-upload` 自带上传与手动 `@change` 回调冲突 |
+| **解决** | ① 移除 axios 默认 Content-Type ② 用原生 `<input type="file" multiple>` + `@click` 触发 + `@change` 回调彻底替代 `n-upload`，绕开组件库黑盒 |
+| **教训** | 组件库的上传组件做了太多内部状态管理，和自定义 axios 上传逻辑天然冲突。当上传场景简单（选文件→发请求），原生 `<input type="file">` 比任何组件库都可靠。**不要为"看起来像组件库风格"引入黑盒复杂度** |
+
+#### 难点 18：Pinia persist 竞态条件 → 登录后立即 401
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 登录成功→上传成功→2秒后列表刷新 401→refresh 也 401→强制跳登录。每次登录后首次操作可用，后续全 401 |
+| **排查** | curl 全链路(login→upload→list) 200。后端日志：浏览器 upload 200 → list 401 → refresh 401。说明 token 在上传后被替换为旧值。问题在 Pinia persist 插件异步写 localStorage 与 `router.push()` 跳转之间的竞态条件——新页面读到的可能是空/旧 token |
+| **根因** | `authStore.login()` 设置 token → `router.push()` 跳转 → 新组件 `onMounted` 发请求，但 persist 插件写 localStorage 可能延迟。加上 `main.ts` 中 persist 插件被 try/catch 包裹，失败时清空 `rag-auth` 键（项目①旧代码残留） |
+| **解决** | ① LoginView 登录成功后延迟 300ms：`await new Promise(r => setTimeout(r, 300))` ② 清理 main.ts 中错误的 try/catch 和 `rag-auth` 清除逻辑 |
+| **教训** | 异步持久化 + 路由跳转 = 写后读竞态。解法：跳转前加微小延迟保证写入完成。面试话术："相当于你刚存了东西还没关抽屉就去拿" |
+
+#### 难点 19：Docker 容器重建后上传文件丢失 → 命名卷持久化
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 上传的素材在容器重建后全部 404，只有 DB 记录还在 |
+| **根因** | 上传目录在容器可写层内，`docker compose up --build` 重建后清空 |
+| **解决** | docker-compose.yml 声明 `p4_uploads` 命名卷，挂载到 `/app/data/uploads` |
+
+### 4.7 技术要点（面试速查）
+
+| 点 | 一句话 |
+|------|------|
+| 为什么用原生 input 替代 n-upload | 组件库上传黑盒与自定义 axios 逻辑冲突，原生更可靠 |
+| 为什么去掉默认 Content-Type | axios 默认 `application/json` 会覆盖 FormData 的 `multipart/form-data; boundary` |
+| Pinia persist 竞态 | 持久化写入与路由跳转的异步时序问题，延迟 300ms |
+| 图片预览实现 | 后端 FileResponse + 前端 `object-fit: cover` |
+| Indigo 品牌 | B端需专业感——`#6366F1` 靛蓝 + 紫罗兰渐变 + 玻璃拟态 |
