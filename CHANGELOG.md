@@ -107,6 +107,46 @@
 | **第三阶段** | 切换 PostgreSQL → **失败率 6%** |
 | **PRAGMA 优化** | `journal_mode=WAL`, `synchronous=NORMAL`, `cache_size=-8000`, `busy_timeout=5000`, `foreign_keys=ON` |
 
+### 难点 8：Windows 浏览器上传中文文件名乱码（GBK→Latin-1→UTF-8 编码链）
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 知识库上传 `小红牛电商产品知识库.md`，数据库存成了 `ÃÂ¡ÃÂºÃ...` 这种乱码 |
+| **排查过程** | ① 检查后端收到 `file.filename` 的值 → 已是乱码 ② 确认浏览器发送的是 GBK 编码的 multipart 文件名 ③ Python FastAPI 默认用 Latin-1 解码 multipart header → GBK 字节被错误解释为 Latin-1 字符 |
+| **根因** | 编码链：原始 GBK 字节 → Latin-1 错误解码 → 产生乱码字符串。中间经过 `encode('latin-1')` 能还原 GBK 字节，再 `decode('gbk')` 得到正确中文 |
+| **解决** | 写 `_fix_filename()` 函数：`name.encode('latin-1').decode('gbk')`，修复后同时在 DB + 磁盘文件上更新 |
+| **教训** | 跨国/跨平台文件上传的编码问题是隐蔽坑。RFC 5987 规定 multipart 文件名用 UTF-8，但部分 Windows 系统仍用系统 locale（GBK）。防御方案：在接口入口检测并修复，而非依赖客户端规范 |
+
+### 难点 9：上传后文档一直"等待中"→ 异步改同步的架构权衡
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 上传文档后状态一直是 `pending`，刷新不更新，点预览也看不了。后来发现是容器重启中断了后台 `asyncio.create_task` |
+| **原方案** | 上传 API 先存文件 → 返回 `pending` → `asyncio.create_task` 后台处理。优点：响应快。缺点：任务不可靠，重启即丢失 |
+| **新方案** | 上传 API 同步调用 `process_document_async()` → 处理完再返回。优点：用户看到的一定是 `completed`，永不丢失。缺点：大文件上传需等几秒 |
+| **面试要点** | 这是一个典型的「用延迟换可靠性」的架构决策。面对后台任务可靠性问题时，不是加消息队列（过度设计），而是先评估同步处理是否够用——对 50MB 以内的文档，处理时间 <5 秒，同步完全可行。**选型原则：能同步就不异步，消息队列是最后手段** |
+| **补充保障** | 在 `main.py` 的 `lifespan` 启动钩子中加恢复逻辑：扫描所有 `pending`/`processing` 状态文档并自动重处理，即使未来再出现意外中断也能自愈 |
+
+### 难点 10：DOCX/PDF 文件无法预览 → LangChain Loader 提取文本
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 知识库上传了 `Java 实习面试.docx`，点预览显示"不支持预览 docx 文件，仅支持 txt/md/csv" |
+| **根因** | 后端预览接口只处理 txt/md/csv（用 `open().read()` 直接读），docx 是 ZIP 压缩的 XML 格式，无法直接文本读取 |
+| **解决** | 用 LangChain 的 `Docx2txtLoader`（底层是 `python-docx` 解 ZIP 读 XML）和 `PyPDFLoader`（底层是 `pypdf`）提取纯文本。复用现有的 `loader.py` 模块，不引入新依赖 |
+| **关键代码** | `from langchain_community.document_loaders import Docx2txtLoader; loader = Docx2txtLoader(file_path); docs = loader.load()` |
+| **教训** | 二进制文档（docx/pdf）和文本文件（txt/md）是两个世界。不要用 `open().read()` 处理一切——先判断文件类型，再选对应的 Loader |
+
+### 难点 11：Docker volume 只读 + Vite 缓存 → 前端改动不生效
+
+| 项 | 内容 |
+|------|------|
+| **现象** | 修改了 `AdminKBView.vue`，`docker compose restart` 后页面还是旧的，完全没变化 |
+| **排查** | ① `docker cp` 注入文件 → "mounted volume is read-only" ② 发现前端代码在 Docker 构建时被打包进镜像，volume 是只读挂载 ③ `docker exec` 进去手动改 → Read-only file system |
+| **根因** | Vite 开发模式下，`node_modules/.vite/` 缓存了编译后的模块。代码更新后缓存未失效，Vite 继续从旧缓存读取 |
+| **解决** | 方案1：`docker exec p1-frontend rm -rf /app/node_modules/.vite` 清 Vite 缓存 + `docker restart`（临时）。方案2：`docker compose up --build` 重建镜像（永久） |
+| **教训** | 前端容器化开发要关注两点：① Vite HMR 在 Docker 内的工作方式（需要 `--host 0.0.0.0`）② 依赖缓存（`.vite/`、`node_modules/`）的清理机制。开发阶段建议用 volume mount 而非 COPY 进镜像
+
 ---
 
 ## 四、项目① 重要升级记录
@@ -127,7 +167,12 @@
 | 8/4 | 切换会话闪烁 | 加载新消息前先 `messages = []` |
 | 8/4 | 无 404 路由 | 添加 `/:pathMatch(.*)*` 捕获所有 |
 | 8/8 | spaCy 依赖崩溃 | 改用 TextLoader 绕过 |
-| 8/8 | DOCX/PDF 预览 | 新增文档预览弹窗 |
+| 8/8 | DOCX/PDF 无法预览 | 接 LangChain Docx2txtLoader + PyPDFLoader 提取文本 |
+| 8/8 | Windows 上传中文文件名乱码 | `_fix_filename()`：GBK→Latin-1→UTF-8 编码修复 |
+| 8/8 | 上传后文档一直 pending | 异步改同步处理 + 启动恢复（扫描 pending 自动重处理） |
+| 8/8 | 预览 API 返回 401 | Pinia 持久化 key 是 `token`，前用 `localStorage.access_token` |
+| 8/8 | Docker Vite 缓存不更新 | 清 `.vite/` 缓存 + 重建镜像 |
+| 8/8 | Docker 文档数据丢失 | 添加 `p1_uploads` + `p1_chroma` 命名卷持久化 |
 
 ---
 
@@ -190,15 +235,26 @@
 > 每个项目独立完整（可单独运行），共享技术底座设计模式（Vue3+FastAPI+LangChain）。通过端口规划和统一启动脚本管理。sample-data 是每个项目的差异化核心。
 
 **Q: 遇到的最难 bug 是什么？**
-> 端口冲突的连环错——表象是 LLM 不工作、检索内容不对，排查了 API Key、代码逻辑、环境变量才发现是旧进程占了端口。最后引入 8 端口独立规划从根源解决。
+> 有两个：
+> 1. **GBK 编码乱码链**——表象是中文文件名变乱码，排查了数据库、前端、HTTP header 才发现是 Windows 浏览器→Python FastAPI 的多层编码错误。用 `encode('latin-1').decode('gbk')` 修复。
+> 2. **端口冲突的连环错**——表象是 LLM 不工作、检索内容不对，排查了 API Key、代码逻辑、环境变量才发现是旧进程占了端口。最后引入 8 端口独立规划从根源解决。
 
 **Q: 为什么 SQLite 换 PostgreSQL？**
 > 50并发下 SQLite 锁竞争严重(62%失败)，WAL 模式改善到 30% 但仍有瓶颈。PostgreSQL 支持真正并发写入，失败率降至 6%。
+
+**Q: 上传的文件为什么有时候要等好久？**
+> 旧版用 `asyncio.create_task` 后台处理，上传即返回 `pending`。问题：容器重启后台任务就丢了。新版改为同步处理——上传接口等处理完才返回，用户看到的一定是 `completed`。对于 50MB 以内的文档处理 <5 秒，同步完全可行。遵循"能同步就不异步"原则。
+
+**Q: DOCX/PDF 这类二进制文档怎么处理的？**
+> 用 LangChain 的 `Docx2txtLoader`（python-docx）和 `PyPDFLoader`（pypdf）提取纯文本，再分 chunk 存入向量库。不能直接用 `open().read()`——docx 本质是 ZIP 压缩的 XML，需要用专门的解析器。
+
+**Q: Docker 数据持久化怎么做的？**
+> 关键两步：① `docker-compose.yml` 中声明命名卷（`p1_uploads`、`p1_chroma`），容器删除后数据保留。② `main.py` 启动钩子中扫描 DB 的 completed 文档，重新索引到内存检索器。即使 ChromaDB 挂了也不影响服务。
 
 **Q: 暗色模式怎么实现的？**
 > 双层方案：NaiveUI 的 `darkTheme` 负责组件，自定义 `[data-theme="dark"]` CSS 选择器在 `<html>` 上切换，Pinia store 持久化用户偏好到 localStorage。
 
 ---
 
-*最后更新: 2026-08-09*
+*最后更新: 2026-08-09 (新增难点8-11 + 面试预案补充)*
 *完整记录: README.md (项目列表+端口+启动方式) / CLAUDE.md (各项目开发手册) / ARCHIVE.md (项目①②详细存档)*
