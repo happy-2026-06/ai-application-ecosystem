@@ -23,14 +23,14 @@ def event_loop():
 @pytest.fixture
 async def client():
     """Async HTTP test client with fresh DB for each test."""
-    # Delete old test DB to ensure clean state
+    # Ensure data dir exists (CI may not have it)
     test_db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "_test.db")
+    os.makedirs(os.path.dirname(test_db), exist_ok=True)
+    # Delete old test DB to ensure clean state
     if os.path.exists(test_db):
         try: os.remove(test_db)
         except: pass
 
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-    os.makedirs(data_dir, exist_ok=True)
     await init_db()
     async with AsyncSessionLocal() as db:
         await seed_admin_user(db)
@@ -46,6 +46,9 @@ async def client():
     test_db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "_test.db")
     if os.path.exists(test_db):
         try: os.remove(test_db)
+    
+    # Ensure data dir exists (CI may not have it)
+    os.makedirs(os.path.dirname(test_db), exist_ok=True)
         except: pass
 
 
