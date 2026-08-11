@@ -45,6 +45,8 @@ jobs:
       - run: pip install -r requirements.txt
         working-directory: ${{ steps.dir.outputs.path }}
       - run: pip install pytest pytest-asyncio aiosqlite pytest-timeout httpx
+      - run: mkdir -p data
+        working-directory: ${{ steps.dir.outputs.path }}
       - run: python -m pytest tests/ -q --tb=short
         working-directory: ${{ steps.dir.outputs.path }}
         env:
