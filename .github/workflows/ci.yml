@@ -70,7 +70,7 @@ jobs:
         run: |
           DIR=$(ls -d 0${{ matrix.project }}-*/frontend)
           echo "path=$DIR" >> "$GITHUB_OUTPUT"
-      - run: npm install
+      - run: npm install --legacy-peer-deps
         working-directory: ${{ steps.dir.outputs.path }}
       - run: npx vue-tsc --noEmit || echo "::warning::vue-tsc found type issues (non-blocking)"
         working-directory: ${{ steps.dir.outputs.path }}
