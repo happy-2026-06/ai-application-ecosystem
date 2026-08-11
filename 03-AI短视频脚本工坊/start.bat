@@ -1,5 +1,5 @@
 @echo off
 chcp 65001 >nul
-title AI短视频脚本工坊 - 03
+title 视界短视频工坊 - 03
 cd /d "%~dp0"
 python "%~dp0start.py"

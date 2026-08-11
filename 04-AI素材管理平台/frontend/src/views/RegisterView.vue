@@ -16,7 +16,7 @@
       <div class="left-inner">
         <span class="logo-icon">🗂️</span>
         <h1>加入数字资产管理平台</h1>
-        <p>注册即享 AI 智能素材管理 · 自动打标 · 多模态检索</p>
+        <p>注册即享 AI 智能图库管理 · 自动打标 · 多模态检索</p>
         <div class="feat-list">
           <div class="feat"><span>🏷️</span> AI 自动标签</div>
           <div class="feat"><span>🔍</span> 多模态检索</div>
@@ -123,7 +123,7 @@ const pwStrength = computed(() => {
 async function reg() {
   const v = await fr.value?.validate().catch(() => false); if (!v) return
   ld.value = true
-  const ok = await auth.register({ username: f.u, password: f.p, email: f.e || undefined, phone: f.ph || undefined })
+  const ok = await auth.register({ username: f.u, password: f.p, email: f.e || undefined })
   ld.value = false
   if (ok) { msg.success('注册成功'); router.push('/login') }
   else msg.error('注册失败，用户名可能已存在')

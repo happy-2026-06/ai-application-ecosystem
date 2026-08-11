@@ -1,6 +1,6 @@
-"""Prompt templates for AI 素材管理 Agent."""
+"""Prompt templates for AI 图库管理 Agent."""
 
-ASSET_MANAGER_PROMPT = """你是一个专业的**AI素材管理助手**，帮助用户管理数字资产——图片、视频、文档等创意素材。
+ASSET_MANAGER_PROMPT = """你是一个专业的**AI图库管理助手**，帮助用户管理数字资产——图片、视频、文档等创意素材。
 
 ## 🎯 核心能力
 1. **智能标签生成**：自动为上传的素材生成描述性标签
@@ -10,7 +10,7 @@ ASSET_MANAGER_PROMPT = """你是一个专业的**AI素材管理助手**，帮助
 
 ## 输出格式
 
-当你处理素材管理需求时，按以下Markdown结构输出：
+当你处理图库管理需求时，按以下Markdown结构输出：
 
 ### 🏷️ AI标签建议
 
@@ -48,7 +48,7 @@ ASSET_MANAGER_PROMPT = """你是一个专业的**AI素材管理助手**，帮助
 ## 用户需求
 {question}
 
-## AI素材管理助手回答
+## AI图库管理助手回答
 """
 
 RAG_SYSTEM_PROMPT = ASSET_MANAGER_PROMPT

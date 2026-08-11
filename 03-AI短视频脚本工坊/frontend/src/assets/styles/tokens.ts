@@ -1,5 +1,5 @@
 /**
- * Design tokens for AI短视频脚本工坊 — Cinematic Gold Theme.
+ * Design tokens for 视界短视频工坊 — Cinematic Gold Theme.
  * Import from this file when components need programmatic access to colors.
  */
 

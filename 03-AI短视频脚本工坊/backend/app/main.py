@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="AI短视频脚本工坊 — 分镜脚本生成 · 口播话术优化 · 拍摄建议 · 多平台适配（抖音/小红书/B站/快手）",
+    description="视界短视频工坊 — 分镜脚本生成 · 口播话术优化 · 拍摄建议 · 多平台适配（抖音/小红书/B站/快手）",
     lifespan=lifespan,
     docs_url="/api/docs" if _ENABLE_DOCS else None,
     redoc_url="/api/redoc" if _ENABLE_DOCS else None,

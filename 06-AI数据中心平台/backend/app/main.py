@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="AI数据中心平台 — 数据采集 · 智能清洗 · AI标注 · 版本管理 · 企业级数据底座",
+    description="数据中枢 — 数据采集 · 智能清洗 · AI标注 · 版本管理 · 企业级数据底座",
     lifespan=lifespan,
     docs_url="/api/docs" if _ENABLE_DOCS else None,
     redoc_url="/api/redoc" if _ENABLE_DOCS else None,

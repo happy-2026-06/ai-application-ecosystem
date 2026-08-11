@@ -29,7 +29,7 @@ from app.schemas.asset import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["素材管理"])
+router = APIRouter(tags=["图库管理"])
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -434,6 +434,49 @@ async def get_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return _asset_to_response(asset)
+
+
+# ── Public Search (for cross-project use by ②灵笔/③视界) ──────────
+
+@router.get("/public/search")
+async def public_search_assets(
+    q: str = Query("", description="Search keyword"),
+    file_type: str = Query("all", description="image/video/document/all"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public asset search — no auth required, for ②灵笔 and ③视界."""
+    query = select(Asset).where(Asset.status == "ready")
+
+    if q:
+        search = f"%{q}%"
+        query = query.where(
+            (Asset.original_name.ilike(search)) |
+            (Asset.filename.ilike(search)) |
+            (Asset.ai_description.ilike(search)) |
+            (cast(Asset.ai_tags, String).ilike(search)) |
+            (cast(Asset.tags, String).ilike(search))
+        )
+
+    if file_type != "all":
+        query = query.where(Asset.file_type.ilike(f"{file_type}/%"))
+
+    # Count total
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    # Paginate
+    offset = (page - 1) * page_size
+    result = await db.execute(query.order_by(Asset.created_at.desc()).offset(offset).limit(page_size))
+    assets = result.scalars().all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [_asset_to_response(a) for a in assets],
+    }
 
 
 # ── Delete ──────────────────────────────────────────────────────────

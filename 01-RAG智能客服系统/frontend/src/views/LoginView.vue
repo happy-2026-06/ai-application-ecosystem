@@ -10,8 +10,8 @@
         <!-- Logo area -->
         <div class="card-logo">
           <span class="logo-icon">💬</span>
-          <h1>RAG 知识库问答</h1>
-          <p>企业级 AI 知识库问答平台</p>
+          <h1>智能客服助手</h1>
+          <p>电商智能问答 · 秒级响应 · 知识溯源 · 自动转人工</p>
         </div>
 
         <!-- Error -->

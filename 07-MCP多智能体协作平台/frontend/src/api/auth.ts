@@ -43,7 +43,7 @@ export const authApi = {
       new_password: newPassword,
     })
   },
-  getMe() {
-    return apiClient.get('/auth/me')
-  },
+  getMe() { return apiClient.get('/auth/me') },
+  forgotPassword(username: string) { return apiClient.post('/auth/forgot-password', { username }) },
+  resetPassword(username: string, newPassword: string) { return apiClient.post('/auth/reset-password', { username, new_password: newPassword }) },
 }

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "AI素材管理平台"
+    APP_NAME: str = "图库资产管家"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./data/rag_system.db",
+        default="sqlite+aiosqlite:///./data/assetmgmt.db",
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
         default="admin123",
         description="Initial admin password. CHANGE IT after first login!",
     )
-    ADMIN_EMAIL: str = "admin@rag-system.local"
+    ADMIN_EMAIL: str = "admin@assetmgmt.local"
 
     # ── Pydantic Config ──────────────────────────────────────────────
     model_config = {

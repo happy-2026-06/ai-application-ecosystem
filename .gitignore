@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 __pycache__/
+.pytest_cache/
 *.pyc
 .venv/
 venv/
@@ -23,12 +24,25 @@ Thumbs.db
 
 # Data
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 data/
 uploads/
 
 # Logs
 *.log
+
+# Stress test reports
+stress-reports/
+
+# Personal docs (interview notes, dev journals)
+CLAUDE.md
+CHANGELOG.md
+AUDIT_REPORT.md
+VERIFICATION_REPORT.md
+CROSS_PROJECT_INTEGRATION.md
+HOW_TO_USE_DATAHUB.md
 
 # Claude
 .claude/

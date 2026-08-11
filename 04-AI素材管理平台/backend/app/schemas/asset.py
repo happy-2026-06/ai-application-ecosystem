@@ -1,4 +1,4 @@
-"""Asset-related Pydantic schemas for AI素材管理平台."""
+"""Asset-related Pydantic schemas for 图库资产管家."""
 from pydantic import BaseModel, Field
 from datetime import datetime
 

@@ -16,7 +16,10 @@
     <template v-else>
       <div class="chat-topbar">
         <h3>{{ chatStore.currentSession?.title || '新对话' }}</h3>
-        <n-button text size="small" @click="exportChat">📥 导出</n-button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <n-select v-model:value="selectedModel" :options="modelOptions" size="tiny" placeholder="🤖 默认模型" style="width:160px" @update:value="onModelChange"/>
+          <n-button text size="small" @click="exportChat">📥 导出</n-button>
+        </div>
       </div>
 
       <div class="msg-scroll" ref="msgContainer">
@@ -102,6 +105,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useMessage } from 'naive-ui'
+import apiClient from '../api/client'
 import MarkdownIt from 'markdown-it'
 
 const route = useRoute(); const router = useRouter()
@@ -114,6 +118,22 @@ const msgContainer = ref<HTMLElement | null>(null)
 const currentId = computed(() => (route.params.sessionId as string) || chatStore.currentSession?.id || null)
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+
+// Model selection
+const selectedModel = ref('default')
+const modelOptions = ref([{label:'🤖 默认DeepSeek',value:'default'}])
+
+async function fetchModels(){
+  try{const r=await apiClient.get('/finetune/models/active',{baseURL:'http://localhost:8808/api'});modelOptions.value=[{label:'🤖 默认DeepSeek',value:'default'},...r.data.map((m:any)=>({label:'🧠 '+m.model_name,value:m.proxy_url}))]}catch{}
+}
+
+function onModelChange(url:string){
+  if(url==='default') localStorage.removeItem('custom_llm_url')
+  else localStorage.setItem('custom_llm_url',url)
+  // Reload needed for LLM switch — user can refresh
+}
+
+onMounted(async () => { fetchModels() });
 function renderMd(t: string) { return t ? md.render(t) : '' }
 function escapeHtml(t: string) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 

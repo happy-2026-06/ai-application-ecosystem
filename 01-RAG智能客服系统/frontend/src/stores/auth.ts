@@ -16,7 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
   const refreshToken = ref<string>('')
   const user = ref<UserInfo | null>(null)
   const isDarkMode = ref<boolean>(false)
-  const avatar = ref<string>('🐱')  // default cute avatar
+  const avatar = ref<string>('🐱')
 
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
@@ -34,8 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
       refreshToken.value = d.refresh_token
       user.value = d.user
       return true
-    } catch (e: any) {
-      throw e
+    } catch {
+      return false
     }
   }
 
@@ -67,7 +67,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { default: apiClient } = await import('../api/client')
       await apiClient.patch('/auth/profile', { display_name: displayName })
-      // Re-fetch user from backend to get the updated data
       const meRes = await apiClient.get('/auth/me')
       if (meRes.data) {
         user.value = meRes.data
@@ -90,7 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 }, {
   persist: {
-    key: 'rag-auth',
+    key: 'cs-auth',
     storage: localStorage,
     pick: ['token', 'refreshToken', 'user', 'isDarkMode', 'avatar'],
   },

@@ -76,7 +76,7 @@ SELF_MEDIA_PROMPT = """你是一个专业的**AI自媒体内容创作助手**，
 ## 用户需求
 {question}
 
-## AI自媒体助手回答
+## AI灵笔引擎回答
 """
 
 RAG_SYSTEM_PROMPT = SELF_MEDIA_PROMPT

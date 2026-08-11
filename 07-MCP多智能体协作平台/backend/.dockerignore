@@ -1,0 +1,18 @@
+# Docker build — exclude everything
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.example
+*.db
+*.sqlite3
+data/
+uploads/
+tests/
+scripts/
+pytest.ini
+.git/
+.gitignore
+Dockerfile
+.dockerignore

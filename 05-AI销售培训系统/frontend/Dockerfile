@@ -1,33 +1,15 @@
-FROM node:20-alpine as build
+FROM node:20-alpine
 
 WORKDIR /app
 
+# Reuse package.json from the build context, install deps
 COPY package.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
-COPY . .
-RUN npm run build
+# Source code is mounted at runtime via docker-compose volumes
 
-# Production stage
-FROM nginx:alpine
+EXPOSE 5173
 
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Custom nginx config for SPA
-RUN echo 'server { \
-    listen 80; \
-    server_name localhost; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /api/ { \
-        proxy_pass http://backend:8000; \
-        proxy_set_header Host $host; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# Vite dev server (port 5173 = our standard)
+# We always override with --port in docker-compose command
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

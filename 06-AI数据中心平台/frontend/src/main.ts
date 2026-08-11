@@ -15,7 +15,7 @@ try {
 } catch (e) {
   console.error('Failed to initialize state persistence, clearing cache...', e)
   // Clear potentially corrupted data
-  try { localStorage.removeItem('rag-auth') } catch {}
+  try { localStorage.removeItem('datacenter-auth') } catch {}
   // Retry without persistence
   pinia.use(piniaPluginPersistedstate)
 }

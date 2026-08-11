@@ -50,3 +50,4 @@ pytest
 pytest-asyncio
 aiosqlite
 pytest-timeout
+locust>=2.31

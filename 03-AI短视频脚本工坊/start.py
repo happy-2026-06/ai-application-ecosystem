@@ -1,4 +1,4 @@
-"""项目③独立启动器 — AI短视频脚本工坊
+"""项目③独立启动器 — 视界短视频工坊
 
 被 start.bat 调用，负责清理 + 启动前后端服务。
 """
@@ -12,7 +12,7 @@ FRONTEND = os.path.join(BASE, "frontend")
 def main():
     print()
     print("=" * 45)
-    print("  AI短视频脚本工坊 v2.0")
+    print("  视界短视频工坊 v2.0")
     print("  分镜脚本 + 口播话术生成")
     print("=" * 45)
 

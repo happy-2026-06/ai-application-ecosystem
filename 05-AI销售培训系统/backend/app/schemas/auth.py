@@ -22,6 +22,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # seconds
+    user: dict | None = None  # {id, username, email, display_name, role, is_active}
 
 
 class ChangePasswordRequest(BaseModel):
@@ -45,3 +46,14 @@ class UserResponse(BaseModel):
 class RefreshTokenRequest(BaseModel):
     """Refresh token request."""
     refresh_token: str = Field(..., description="刷新令牌")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request."""
+    username: str = Field(..., description="用户名")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request."""
+    username: str = Field(..., description="用户名")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")

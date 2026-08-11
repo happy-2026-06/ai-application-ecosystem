@@ -45,3 +45,14 @@ class UserResponse(BaseModel):
 class RefreshTokenRequest(BaseModel):
     """Refresh token request."""
     refresh_token: str = Field(..., description="刷新令牌")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request."""
+    username: str = Field(..., description="用户名")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password request."""
+    username: str = Field(..., description="用户名")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")

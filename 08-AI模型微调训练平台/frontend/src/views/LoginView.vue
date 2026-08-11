@@ -1,47 +1,124 @@
 <template>
   <div class="login-page">
-    <!-- Left: Product intro -->
-    <div class="login-left">
-      <div class="left-inner">
-        <div class="logo-area">
-          <span class="logo-icon">🤖</span>
-          <h1>RAG 知识库问答系统</h1>
-          <p>基于 AI 的电商商品智能问答助手</p>
-        </div>
-        <div class="feature-list">
-          <div class="feat"><span>🔍</span> 知识库检索 — 上传商品文档，AI 精准回答</div>
-          <div class="feat"><span>💬</span> 多轮对话 — 像聊天一样查询产品信息</div>
-          <div class="feat"><span>📎</span> 引用溯源 — 每个回答标注信息来源</div>
-          <div class="feat"><span>📊</span> 数据管理 — 可视化仪表盘 + 知识库管理</div>
-        </div>
-      </div>
-      <div class="left-footer">毕业设计项目 · LangChain + FastAPI + Vue 3</div>
+    <!-- Background orbs -->
+    <div class="bg-layer">
+      <div class="bg-orb orb-1" />
+      <div class="bg-orb orb-2" />
+      <div class="bg-orb orb-3" />
+    </div>
+    <div class="bg-dots">
+      <span v-for="i in 40" :key="i" class="dot" :style="{
+        left: `${(i * 19 + 7) % 100}%`,
+        top: `${(i * 31 + 13) % 100}%`,
+        opacity: 0.03 + ((i % 3) * 0.02),
+      }" />
     </div>
 
-    <!-- Right: Login form -->
-    <div class="login-right">
-      <div class="form-card">
-        <h2>欢迎回来 👋</h2>
-        <p class="form-sub">登录你的账号开始使用</p>
-        <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
-          <n-form-item label="用户名" path="username">
-            <n-input v-model:value="form.username" placeholder="请输入用户名" size="large" :input-props="{autocomplete:'username'}" />
-          </n-form-item>
-          <n-form-item label="密码" path="password">
-            <n-input v-model:value="form.password" type="password" placeholder="请输入密码" size="large" @keyup.enter="handleLogin" :input-props="{autocomplete:'current-password'}" />
-          </n-form-item>
-          <n-button type="primary" block size="large" :loading="loading" @click="handleLogin" style="height:48px;font-size:16px;font-weight:600;">
-            登 录
-          </n-button>
-        </n-form>
-        <div class="form-extra">
-          <span>还没有账号？</span>
-          <n-button text type="primary" @click="$router.push('/register')">立即注册</n-button>
+    <div class="login-container">
+      <!-- Left: Brand Panel -->
+      <div class="login-brand">
+        <div class="brand-badge">AI 模型工厂</div>
+        <h1>定制你的<br/>专属 AI 模型</h1>
+        <p>QLoRA 低显存微调 · 实时 Loss 可视化 · A/B 对比评估 · 一键部署 API</p>
+
+        <div class="brand-features">
+          <div class="bf-item">
+            <div class="bf-icon-wrap amber"><span>🧠</span></div>
+            <div><strong>QLoRA 微调</strong><p>低显存即可微调大语言模型</p></div>
+          </div>
+          <div class="bf-item">
+            <div class="bf-icon-wrap orange"><span>📊</span></div>
+            <div><strong>训练可视化</strong><p>Loss 曲线 / 评估指标实时监控</p></div>
+          </div>
+          <div class="bf-item">
+            <div class="bf-icon-wrap green"><span>🔬</span></div>
+            <div><strong>A/B 对比测试</strong><p>微调前后效果一目了然</p></div>
+          </div>
+          <div class="bf-item">
+            <div class="bf-icon-wrap purple"><span>🚀</span></div>
+            <div><strong>一键部署</strong><p>微调完成即部署为推理 API</p></div>
+          </div>
         </div>
-        <div class="demo-hint">
-          <n-divider>演示账号</n-divider>
-          <n-tag type="info" size="small">admin</n-tag>
-          <n-tag type="info" size="small" style="margin-left:6px;">123456</n-tag>
+
+        <div class="brand-footer">Vue3 + FastAPI + LangChain + DeepSeek</div>
+      </div>
+
+      <!-- Right: Login Form -->
+      <div class="login-form-panel">
+        <div class="form-card">
+          <div class="form-header">
+            <span class="form-icon-wrap">🧠</span>
+            <h2>欢迎回来</h2>
+            <p>登录你的微调训练工作台</p>
+          </div>
+
+          <n-form ref="formRef" :model="form" :rules="rules">
+            <n-form-item path="username">
+              <n-input
+                v-model:value="form.username"
+                placeholder="用户名"
+                size="large"
+                :input-props="{ autocomplete: 'username' }"
+                class="login-input"
+              >
+                <template #prefix>
+                  <span class="input-prefix">👤</span>
+                </template>
+              </n-input>
+            </n-form-item>
+
+            <n-form-item path="password">
+              <n-input
+                v-model:value="form.password"
+                :type="showPwd ? 'text' : 'password'"
+                placeholder="密码"
+                size="large"
+                @keyup.enter="handleLogin"
+                :input-props="{ autocomplete: 'current-password' }"
+                class="login-input"
+              >
+                <template #prefix>
+                  <span class="input-prefix">🔒</span>
+                </template>
+                <template #suffix>
+                  <span class="pwd-eye" @click="showPwd = !showPwd">
+                    {{ showPwd ? '🙈' : '👁️' }}
+                  </span>
+                </template>
+              </n-input>
+            </n-form-item>
+
+            <div v-if="errorMsg" class="error-tip">
+              <span>{{ errorIcon }}</span>
+              <span>{{ errorMsg }}</span>
+            </div>
+
+            <n-button
+              type="primary"
+              block
+              size="large"
+              :loading="loading"
+              @click="handleLogin"
+              class="submit-btn"
+            >
+              {{ loading ? '验证中…' : '登 录' }}
+            </n-button>
+          </n-form>
+
+          <div class="form-actions">
+            <n-button text @click="$router.push('/forgot-password')">忘记密码</n-button>
+            <span class="sep">·</span>
+            <n-button text @click="$router.push('/register')">注册账号</n-button>
+          </div>
+
+          <div class="demo-info">
+            <span class="demo-label">演示账号</span>
+            <div class="demo-creds">
+              <code>admin</code>
+              <span class="demo-dot">·</span>
+              <code>ChangeMe!2024</code>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -49,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMessage } from 'naive-ui'
@@ -57,53 +134,180 @@ import type { FormInst, FormRules } from 'naive-ui'
 
 const router = useRouter(); const route = useRoute()
 const authStore = useAuthStore(); const message = useMessage()
-const formRef = ref<FormInst|null>(null); const loading = ref(false)
-const form = reactive({username:'',password:''})
+const formRef = ref<FormInst | null>(null); const loading = ref(false)
+const showPwd = ref(false); const errorMsg = ref('')
+const form = reactive({ username: '', password: '' })
 const rules: FormRules = {
-  username:[{required:true,message:'请输入用户名',trigger:'blur'}],
-  password:[{required:true,message:'请输入密码',trigger:'blur'}],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
-async function handleLogin(){
-  const v=await formRef.value?.validate().catch(()=>false); if(!v) return
-  loading.value=true
-  const ok=await authStore.login({username:form.username,password:form.password})
-  loading.value=false
-  if(ok){message.success('登录成功');router.push((route.query.redirect as string)||'/chat')}
-  else message.error('用户名或密码错误')
+
+const errorIcon = computed(() => {
+  if (errorMsg.value.includes('不存在')) return '🚫'
+  if (errorMsg.value.includes('密码')) return '🔑'
+  if (errorMsg.value.includes('禁用')) return '⛔'
+  return '⚠️'
+})
+
+async function handleLogin() {
+  const v = await formRef.value?.validate().catch(() => false); if (!v) return
+  loading.value = true; errorMsg.value = ''
+  try {
+    await authStore.login({ username: form.username, password: form.password })
+    message.success('登录成功')
+    await new Promise(r => setTimeout(r, 300))
+    router.push((route.query.redirect as string) || '/lab')
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail || ''
+    if (detail) errorMsg.value = detail
+    else if (e?.response?.status === 403) errorMsg.value = '账户已被禁用'
+    else errorMsg.value = '登录失败，请检查用户名和密码'
+  } finally { loading.value = false }
 }
 </script>
 
 <style scoped>
-.login-page { display:flex; height:100vh; }
-.login-left {
-  flex:1; background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);
-  color:#e0e0f0; display:flex; flex-direction:column; justify-content:center;
-  align-items:center; padding:60px; position:relative; overflow:hidden;
+/* ══════════════════════════════════════════════════════════════════
+   项目⑧ AI模型微调训练 — 登录页
+   配色：白色底 + 琥珀金渐变点缀 + 现代企业风格
+   ══════════════════════════════════════════════════════════════════ */
+.login-page {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; background: #f8fafc;
+  position: relative; overflow: hidden;
 }
-.login-left::before {
-  content:''; position:absolute; top:-100px; right:-100px; width:300px; height:300px;
-  background:rgba(102,126,234,.1); border-radius:50%;
-}
-.login-left::after {
-  content:''; position:absolute; bottom:-80px; left:-80px; width:250px; height:250px;
-  background:rgba(124,58,237,.08); border-radius:50%;
-}
-.left-inner { max-width:460px; position:relative; z-index:1; }
-.logo-area { text-align:center; margin-bottom:40px; }
-.logo-icon { font-size:64px; display:block; margin-bottom:12px; }
-.logo-area h1 { font-size:28px; font-weight:700; color:#fff; margin:0 0 6px; }
-.logo-area p { color:#8899bb; font-size:15px; margin:0; }
-.feat { padding:12px 16px; margin-bottom:8px; border-radius:10px; background:rgba(255,255,255,.04); font-size:14px; color:#bcc8e0; display:flex; align-items:center; gap:10px; }
-.feat span { font-size:20px; }
-.left-footer { position:absolute; bottom:20px; color:#556; font-size:12px; }
 
-.login-right { width:480px; display:flex; align-items:center; justify-content:center; padding:40px; background:#fff; }
-.form-card { width:100%; max-width:380px; }
-.form-card h2 { font-size:26px; font-weight:700; margin:0 0 4px; color:#1a1a2e; }
-.form-sub { color:#888; margin:0 0 28px; font-size:14px; }
-.form-extra { text-align:center; margin-top:20px; font-size:14px; color:#999; }
-.demo-hint { text-align:center; margin-top:16px; }
+/* ── 背景 ── */
+.bg-layer { position: absolute; inset: 0; pointer-events: none; }
+.bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); }
+.orb-1 { width: 500px; height: 500px; top: -150px; right: -100px; background: rgba(245,158,11,.06); }
+.orb-2 { width: 400px; height: 400px; bottom: -100px; left: -50px; background: rgba(217,119,6,.05); }
+.orb-3 { width: 300px; height: 300px; top: 40%; left: 30%; background: rgba(34,197,94,.03); }
+.bg-dots { position: absolute; inset: 0; pointer-events: none; }
+.dot { position: absolute; width: 2px; height: 2px; background: #fcd34d; border-radius: 50%; }
 
-[data-theme="dark"] .login-right { background:#16161d; }
-[data-theme="dark"] .form-card h2 { color:#eee; }
+/* ── 主布局 ── */
+.login-container {
+  display: flex; width: 1040px; min-height: 640px;
+  background: #fff; border-radius: 28px; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 20px 80px rgba(0,0,0,.08);
+  position: relative; z-index: 1;
+}
+
+/* ── 左侧品牌 ── */
+.login-brand {
+  flex: 1; padding: 56px 52px; display: flex; flex-direction: column;
+  background: linear-gradient(160deg, #fafaf9 0%, #fffbeb 50%, #fef3c7 100%);
+}
+.brand-badge {
+  display: inline-block; align-self: flex-start;
+  padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  color: #d97706; background: rgba(245,158,11,.1); letter-spacing: 0.5px;
+  margin-bottom: 24px;
+}
+.login-brand h1 {
+  font-size: 38px; font-weight: 800; line-height: 1.2; color: #0f172a;
+  margin: 0 0 16px; letter-spacing: -1px;
+}
+.login-brand > p {
+  font-size: 15px; color: #64748b; margin: 0 0 36px; line-height: 1.5;
+}
+
+.brand-features { display: flex; flex-direction: column; gap: 16px; }
+.bf-item { display: flex; align-items: flex-start; gap: 14px; }
+.bf-icon-wrap {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  flex-shrink: 0;
+}
+.bf-icon-wrap.amber  { background: #fffbeb; }
+.bf-icon-wrap.orange { background: #fff7ed; }
+.bf-icon-wrap.green  { background: #ecfdf5; }
+.bf-icon-wrap.purple { background: #f5f3ff; }
+.bf-item strong { display: block; font-size: 14px; color: #1e293b; margin-bottom: 2px; }
+.bf-item p { margin: 0; font-size: 12px; color: #94a3b8; }
+
+.brand-footer {
+  margin-top: auto; padding-top: 24px;
+  font-size: 11px; color: #d4a373; letter-spacing: 0.3px;
+}
+
+/* ── 右侧表单 ── */
+.login-form-panel {
+  width: 440px; display: flex; align-items: center; justify-content: center;
+  padding: 48px 40px;
+}
+.form-card { width: 100%; }
+.form-header { text-align: center; margin-bottom: 32px; }
+.form-icon-wrap { font-size: 40px; display: block; margin-bottom: 12px; }
+.form-header h2 { font-size: 24px; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
+.form-header p { font-size: 14px; color: #94a3b8; margin: 0; }
+
+/* 输入框 */
+:deep(.login-input .n-input) {
+  --n-border: 1px solid #e2e8f0 !important;
+  --n-border-hover: 1px solid #cbd5e1 !important;
+  --n-border-focus: 1px solid #f59e0b !important;
+  --n-color: #fff !important;
+  --n-color-focus: #fff !important;
+  --n-text-color: #1e293b !important;
+  --n-placeholder-color: #94a3b8 !important;
+  --n-height: 48px !important;
+  border-radius: 14px !important;
+}
+.input-prefix { font-size: 16px; opacity: 0.45; margin-right: 4px; }
+.pwd-eye { cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; opacity: 0.5; }
+.pwd-eye:hover { opacity: 0.8; background: #f1f5f9; }
+
+/* 提交按钮 */
+.submit-btn {
+  height: 50px !important; font-size: 16px !important; font-weight: 700 !important;
+  border-radius: 14px !important; letter-spacing: 1px; margin-top: 8px;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(245,158,11,0.25);
+  transition: all .2s !important;
+}
+.submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(245,158,11,0.4) !important;
+}
+
+/* 错误提示 */
+.error-tip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 10px; font-size: 13px;
+  background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+  margin-bottom: 4px; animation: slideDown .25s ease both;
+}
+
+/* 操作链接 */
+.form-actions {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-top: 20px; font-size: 13px; color: #94a3b8;
+}
+.sep { margin: 0 2px; }
+
+/* 演示信息 */
+.demo-info {
+  margin-top: 24px; text-align: center; padding: 14px;
+  background: #f8fafc; border-radius: 12px;
+}
+.demo-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; }
+.demo-creds { margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.demo-creds code {
+  background: #fff; border: 1px solid #e2e8f0; padding: 2px 10px;
+  border-radius: 6px; font-size: 13px; color: #475569; font-family: 'SF Mono', 'Consolas', monospace;
+}
+.demo-dot { color: #cbd5e1; }
+
+@keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── 响应式 ── */
+@media (max-width: 1080px) {
+  .login-container { width: 90vw; flex-direction: column; }
+  .login-brand { padding: 40px 32px; }
+  .login-brand h1 { font-size: 28px; }
+  .login-form-panel { width: 100%; padding: 0 32px 40px; }
+}
 </style>

@@ -63,8 +63,8 @@ async function chpwd(){const v=await pf.value?.validate().catch(()=>false);if(!v
 .avatar-grid { display:flex; flex-wrap:wrap; gap:8px; }
 .av-item { width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:10px; cursor:pointer; transition:all .15s; border:2px solid transparent; background:#f5f6fa; }
 .av-item:hover { transform:scale(1.1); background:#eef0f8; }
-.av-item.sel { border-color:#667eea; background:#e8ecf8; transform:scale(1.12); }
+.av-item.sel { border-color:#f59e0b; background:#fffbeb; transform:scale(1.12); }
 [data-theme="dark"] .set-page h2,[data-theme="dark"] .set-section h3 { color: #eee; }
 [data-theme="dark"] .av-item { background: #1e1e28; }
-[data-theme="dark"] .av-item.sel { background: rgba(102,126,234,.2); }
+[data-theme="dark"] .av-item.sel { background: rgba(245,158,11,.2); border-color:#f59e0b; }
 </style>

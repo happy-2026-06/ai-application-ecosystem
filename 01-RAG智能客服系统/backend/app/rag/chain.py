@@ -4,11 +4,13 @@ LLM and chain singletons are cached for performance. Call reset_rag_chain()
 after changing runtime configuration (e.g., API key) to invalidate the cache.
 """
 import logging
+import httpx
 from langchain_core.prompts import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
+from langchain_core.language_models.llms import LLM
 from langchain_deepseek import ChatDeepSeek
 
 from app.config import settings
@@ -16,18 +18,77 @@ from app.rag.prompts import RAG_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-_llm: ChatDeepSeek | None = None
+_llm = None
 _chain = None
 
 
-def get_llm() -> ChatDeepSeek:
-    """Get or create the LLM singleton (DeepSeek API).
+class _CustomLLMProxy(LLM):
+    """LLM wrapper that proxies to ⑧模型工厂's fine-tuned model.
 
-    Raises ValueError if DEEPSEEK_API_KEY is not configured.
-    On failure, the singleton is NOT cached — next call retries initialization.
+    Parses RAG context from the assembled prompt and passes it as structured
+    rag_context so ⑧'s Smart Proxy can combine training data + RAG knowledge.
+    """
+    proxy_url: str = ""
+
+    @property
+    def _llm_type(self) -> str:
+        return "custom-finetuned-proxy"
+
+    def _call(self, prompt: str, stop=None, **kwargs) -> str:
+        # Parse RAG context from the prompt's [来源:N] markers
+        rag_context = _parse_rag_context(prompt)
+        # Extract the actual question (everything after "## 用户问题")
+        question = _extract_question(prompt)
+
+        payload: dict = {
+            "message": question or prompt,
+        }
+        if rag_context:
+            payload["rag_context"] = rag_context
+
+        try:
+            resp = httpx.post(self.proxy_url, json=payload, timeout=60)
+            if resp.status_code == 200:
+                return resp.json().get("response", "")
+            return f"[模型代理错误: HTTP {resp.status_code}]"
+        except Exception as e:
+            return f"[模型代理连接失败: {e}]"
+
+
+def _parse_rag_context(prompt: str) -> list[str]:
+    """Parse RAG context chunks from LangChain's assembled prompt.
+
+    The prompt contains [来源:N] markers with document content. Extract
+    these chunks to pass as structured rag_context to ⑧ Smart Proxy.
+    """
+    import re
+    chunks = re.findall(r'\[来源:\d+\]\s*文档:\s*\S+.*?(?=\[来源:\d+\]|## 用户问题|\Z)', prompt, re.DOTALL)
+    return [chunk.strip()[:400] for chunk in chunks[:5]]  # Max 5 chunks, 400 chars each
+
+
+def _extract_question(prompt: str) -> str:
+    """Extract the user's question from the assembled RAG prompt."""
+    import re
+    match = re.search(r'## 用户问题\s*\n(.*?)(?:\n## AI客服回答|\Z)', prompt, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    # Fallback: use the entire prompt (but truncate)
+    return prompt[-500:].strip()
+
+
+def get_llm():
+    """Get or create the LLM singleton.
+
+    If CUSTOM_LLM_URL is set, uses the fine-tuned model from ⑧.
+    Otherwise uses the default DeepSeek API.
     """
     global _llm
     if _llm is not None:
+        return _llm
+
+    if settings.CUSTOM_LLM_URL:
+        logger.info("Using custom fine-tuned model proxy: %s", settings.CUSTOM_LLM_URL)
+        _llm = _CustomLLMProxy(proxy_url=settings.CUSTOM_LLM_URL)
         return _llm
 
     if not settings.DEEPSEEK_API_KEY:
@@ -50,7 +111,6 @@ def get_llm() -> ChatDeepSeek:
         logger.info("DeepSeek LLM initialized: model=%s", settings.DEEPSEEK_MODEL)
         return _llm
     except Exception as e:
-        # Do NOT cache a failed instance — allow retry on next request
         logger.error("Failed to initialize DeepSeek LLM: %s", e)
         raise
 

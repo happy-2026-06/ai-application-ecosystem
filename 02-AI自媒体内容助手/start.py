@@ -1,4 +1,4 @@
-"""项目②独立启动器 — AI自媒体内容助手
+"""项目②独立启动器 — 灵笔内容引擎
 
 被 start.bat 调用，负责清理 + 启动前后端服务。
 """
@@ -12,7 +12,7 @@ FRONTEND = os.path.join(BASE, "frontend")
 def main():
     print()
     print("=" * 45)
-    print("  AI自媒体内容助手 v2.0")
+    print("  灵笔内容引擎 v2.0")
     print("  爆款标题 + 短视频脚本生成")
     print("=" * 45)
 

@@ -5,3 +5,7 @@ CREATE DATABASE rag_system;
 CREATE DATABASE selfmedia;
 CREATE DATABASE videofactory;
 CREATE DATABASE assetmgmt;
+CREATE DATABASE salestraining;
+CREATE DATABASE datacenter;
+CREATE DATABASE agentplatform;
+CREATE DATABASE finetune;

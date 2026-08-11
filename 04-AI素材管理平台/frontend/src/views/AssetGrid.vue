@@ -3,7 +3,7 @@
     <!-- 顶部搜索栏 -->
     <header class="asset-topbar">
       <div class="topbar-left">
-        <h2>🗂️ 素材管理</h2>
+        <h2>🗂️ 图库管理</h2>
         <span class="topbar-count" v-if="!loading">共 {{ stats.total }} 个素材</span>
       </div>
       <div class="topbar-search">
@@ -280,7 +280,7 @@
           <div class="info-row"><span>上传时间</span><span>{{ formatDate(selectedAsset.created_at) }}</span></div>
         </div>
         <div class="detail-actions">
-          <n-button block type="primary" @click="openPreview(selectedAsset)">🔍 预览</n-button>
+          <n-button block type="primary" @click="openPreview(selectedAsset!)">🔍 预览</n-button>
           <n-button block secondary @click="handleDownload(selectedAsset)" style="margin-top: 6px;">⬇ 下载</n-button>
           <n-button block type="error" @click="handleDelete(selectedAsset)" style="margin-top: 6px;">🗑 删除</n-button>
         </div>
@@ -794,7 +794,8 @@ function clearImageSearch() {
 }
 
 // ── Preview ──
-function openPreview(asset: AssetItem) {
+function openPreview(asset: AssetItem | null) {
+  if (!asset) return
   previewAsset.value = asset
   showPreview.value = true
 }

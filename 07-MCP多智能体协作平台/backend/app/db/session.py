@@ -39,6 +39,17 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+# Dedicated session factory for concurrent agent execution — uses
+# pool_pre_ping=False to avoid the "transaction in progress" race
+# when multiple agents commit from asyncio.gather() callbacks.
+AgentSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
 
 async def get_db() -> AsyncSession:
     """FastAPI dependency: yields an async database session."""

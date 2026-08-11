@@ -232,7 +232,6 @@ async function reg() {
       username: f.u,
       password: f.p,
       email: f.e || undefined,
-      phone: f.ph || undefined,
     })
     ld.value = false
 

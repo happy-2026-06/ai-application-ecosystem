@@ -141,9 +141,10 @@ async def refresh_access_token(
 async def seed_admin_user(db: AsyncSession) -> None:
     """Ensure an admin user exists with the configured credentials.
 
-    Creates the admin user if absent. Does NOT reset the password on restart
-    — once created, the admin password persists from the database.
-    To reset the admin password, use a CLI script or change it via the web UI.
+    Creates the admin user if absent. If the admin already exists but the
+    configured password in .env differs from the stored hash, automatically
+    re-hashes and persists the new password — this lets developers change
+    the admin password via .env without touching the database.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -165,7 +166,14 @@ async def seed_admin_user(db: AsyncSession) -> None:
         db.add(admin)
         await db.flush()
         logger.info("Admin user '%s' created", settings.ADMIN_USERNAME)
-    elif admin.role != "admin":
-        admin.role = "admin"
-        await db.flush()
-        logger.info("Admin user '%s' role corrected to admin", settings.ADMIN_USERNAME)
+    else:
+        # Sync role if drifted
+        if admin.role != "admin":
+            admin.role = "admin"
+            await db.flush()
+            logger.info("Admin user '%s' role corrected to admin", settings.ADMIN_USERNAME)
+        # Sync password if .env changed (难点13: keep .env as source of truth)
+        if not verify_password(settings.ADMIN_PASSWORD, admin.hashed_password):
+            admin.hashed_password = get_password_hash(settings.ADMIN_PASSWORD)
+            await db.flush()
+            logger.info("Admin user '%s' password synced from .env config", settings.ADMIN_USERNAME)

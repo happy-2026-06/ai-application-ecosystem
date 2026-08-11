@@ -21,7 +21,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsersView.vue'), meta: { requiresAdmin: true } },
       { path: 'admin/dashboard', name: 'AdminDashboard', component: () => import('../views/AdminDashboardView.vue'), meta: { requiresAdmin: true } },
     ],
-  }
+  },
+  // 404 catch-all
+  { path: '/:pathMatch(.*)*', redirect: '/home' },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

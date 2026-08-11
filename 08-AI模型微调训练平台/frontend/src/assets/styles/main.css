@@ -1,4 +1,4 @@
-/* Global styles for RAG Knowledge Base Q&A System */
+/* Global styles for AI Model Fine-tuning Training Platform */
 
 * {
   margin: 0;
@@ -44,7 +44,7 @@ html[theme='dark'] ::-webkit-scrollbar-thumb:hover {
 
 /* Message text link styling */
 .message-text a {
-  color: #667eea;
+  color: #f59e0b;
   text-decoration: none;
 }
 

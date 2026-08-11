@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "AI短视频脚本工坊"
+    APP_NAME: str = "视界短视频工坊"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
@@ -24,11 +24,11 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./data/rag_system.db",
+        default="sqlite+aiosqlite:///./data/videofactory.db",
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="sqlite:///./data/rag_system.db",
+        default="sqlite:///./data/videofactory.db",
         description="Synchronous database URL (for Alembic migrations)",
     )
 
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
         default="VF-admin-2024!",
         description="Initial admin password. CHANGE IT after first login!",
     )
-    ADMIN_EMAIL: str = "admin@rag-system.local"
+    ADMIN_EMAIL: str = "admin@videofactory.local"
 
     # ── Pydantic Config ──────────────────────────────────────────────
     model_config = {

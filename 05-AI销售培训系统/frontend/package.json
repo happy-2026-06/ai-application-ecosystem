@@ -1,12 +1,12 @@
 {
-  "name": "rag-frontend",
+  "name": "salestraining-frontend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 3000",
+    "dev": "vite --host 0.0.0.0 --port 3005",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview --port 3000"
+    "preview": "vite preview --port 3005"
   },
   "dependencies": {
     "@vicons/ionicons5": "^0.12.0",

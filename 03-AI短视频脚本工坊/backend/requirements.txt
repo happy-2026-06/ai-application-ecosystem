@@ -61,6 +61,13 @@ pydub
 # Video Generation (智谱 CogVideoX)
 zhipuai
 
+# Testing
+pytest
+pytest-asyncio
+aiosqlite
+pytest-timeout
+locust>=2.31
+
 # Subtitle Export
 pysrt
 

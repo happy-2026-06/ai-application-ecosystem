@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="AI模型微调训练平台 — QLoRA微调 · A/B对比评估 · 一键部署 · 企业级模型定制",
+    description="模型定制工厂 — QLoRA微调 · A/B对比评估 · 一键部署 · 企业级模型定制",
     lifespan=lifespan,
     docs_url="/api/docs" if _ENABLE_DOCS else None,
     redoc_url="/api/redoc" if _ENABLE_DOCS else None,

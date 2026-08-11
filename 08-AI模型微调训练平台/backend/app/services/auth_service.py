@@ -169,3 +169,11 @@ async def seed_admin_user(db: AsyncSession) -> None:
         admin.role = "admin"
         await db.flush()
         logger.info("Admin user '%s' role corrected to admin", settings.ADMIN_USERNAME)
+
+    # ALWAYS sync password from env (难点13修复)
+    if admin is not None:
+        expected_pwd = settings.ADMIN_PASSWORD
+        if not verify_password(expected_pwd, admin.hashed_password):
+            admin.hashed_password = get_password_hash(expected_pwd)
+            await db.flush()
+            logger.info("Admin user '%s' password synced", settings.ADMIN_USERNAME)

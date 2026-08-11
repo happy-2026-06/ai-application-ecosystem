@@ -9,7 +9,7 @@ export default defineConfig({
     vue(),
     Components({
       resolvers: [NaiveUiResolver()],
-      dts: 'src/components.d.ts',
+      dts: false,
     }),
   ],
   resolve: {
@@ -18,13 +18,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3007,
     host: '0.0.0.0',
     strictPort: true,
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8707',
         changeOrigin: true,
       },
     },

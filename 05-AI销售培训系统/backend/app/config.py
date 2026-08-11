@@ -14,21 +14,21 @@ class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "AI销售培训系统"
+    APP_NAME: str = "话术对战教练"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
-        default="dev-secret-change-me-in-production",
+        default="change-me-in-production-please",
         description="Used by FastAPI/Starlette for session signing. Override in production!",
     )
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./data/rag_system.db",
+        default="sqlite+aiosqlite:///./data/salestraining.db",
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="sqlite:///./data/rag_system.db",
+        default="sqlite:///./data/salestraining.db",
         description="Synchronous database URL (for Alembic migrations)",
     )
 
@@ -58,12 +58,18 @@ class Settings(BaseSettings):
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
+    # ── Custom Model (微调模型代理) ───────────────────────────────────
+    CUSTOM_LLM_URL: str = Field(
+        default="",
+        description="如果设置，将使用⑧模型工厂的微调模型代理替代默认DeepSeek"
+    )
+
     # ── LLM Fallback (Ollama) ─────────────────────────────────────────
     OLLAMA_LLM_MODEL: str = "qwen2.5:7b"
 
     # ── JWT ──────────────────────────────────────────────────────────
     JWT_SECRET_KEY: str = Field(
-        default="jwt-dev-secret-change-me-in-production",
+        default="change-me-jwt-secret-please",
         description="JWT signing key. MUST be a long random string in production!",
     )
     JWT_ALGORITHM: str = "HS256"
@@ -86,16 +92,16 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:80", "http://localhost"],
+        default=["http://localhost:3005", "http://localhost:80", "http://localhost"],
     )
 
     # ── Pre-seeded admin account ─────────────────────────────────────
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = Field(
-        default="admin123",
+        default="ChangeMe!2024",
         description="Initial admin password. CHANGE IT after first login!",
     )
-    ADMIN_EMAIL: str = "admin@rag-system.local"
+    ADMIN_EMAIL: str = "admin@salestraining.local"
 
     # ── Pydantic Config ──────────────────────────────────────────────
     model_config = {

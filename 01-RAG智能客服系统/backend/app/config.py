@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "RAG智能客服系统"
+    APP_NAME: str = "智能客服助手"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
+
+    # ── Custom Model (微调模型代理) ───────────────────────────────────
+    CUSTOM_LLM_URL: str = Field(
+        default="",
+        description="如果设置，将使用⑧模型工厂的微调模型代理替代默认DeepSeek。例如: http://p8-backend:8000/api/finetune/models/{id}/proxy"
+    )
 
     # ── LLM Fallback (Ollama) ─────────────────────────────────────────
     OLLAMA_LLM_MODEL: str = "qwen2.5:7b"

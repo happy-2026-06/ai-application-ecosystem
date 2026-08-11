@@ -222,6 +222,7 @@ async def ask_question(
 
     async def generate_sse():
         from app.services.chat_service import stream_chat_response
+        full_answer = ""
         async for event in stream_chat_response(
             db=db,
             session=chat_session,
@@ -229,7 +230,23 @@ async def ask_question(
             question=request.question,
         ):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            if event.get("type") == "done":
+                full_answer = event.get("data", {}).get("full_answer", "")
         yield "data: [DONE]\n\n"
+
+        # Push to DataHub asynchronously
+        try:
+            from shared.datahub_client import push_generated_content_to_datahub
+            import asyncio as _asyncio
+            _asyncio.ensure_future(
+                push_generated_content_to_datahub(
+                    source_project="视界工坊",
+                    title=request.question[:50],
+                    content=full_answer,
+                )
+            )
+        except Exception:
+            pass
 
     return StreamingResponse(
         generate_sse(),

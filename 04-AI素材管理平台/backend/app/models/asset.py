@@ -1,4 +1,4 @@
-"""Asset ORM model for AI素材管理平台."""
+"""Asset ORM model for 图库资产管家."""
 from sqlalchemy import ForeignKey, Integer, String, Text, BigInteger, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin, UUIDMixin

@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="MCP多智能体协作平台 — Agent注册 · 任务编排 · 流水线调度 · 结果聚合",
+    description="智能运营引擎 — Agent注册 · 任务编排 · 流水线调度 · 结果聚合",
     lifespan=lifespan,
     docs_url="/api/docs" if _ENABLE_DOCS else None,
     redoc_url="/api/redoc" if _ENABLE_DOCS else None,

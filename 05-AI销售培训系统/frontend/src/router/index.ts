@@ -5,12 +5,14 @@ import { useAuthStore } from '../stores/auth'
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { guest: true } },
   { path: '/register', name: 'Register', component: () => import('../views/RegisterView.vue'), meta: { guest: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('../views/ForgotPasswordView.vue'), meta: { guest: true } },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),
     children: [
       { path: '', redirect: '/training' },
       { path: 'training', name: 'TrainingRoom', component: () => import('../views/TrainingRoom.vue') },
+      { path: 'history', name: 'TrainingHistory', component: () => import('../views/TrainingHistory.vue'), meta: { standalone: true } },
       { path: 'settings', name: 'Settings', component: () => import('../views/SettingsView.vue') },
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsersView.vue'), meta: { requiresAdmin: true } },
       { path: 'admin/dashboard', name: 'AdminDashboard', component: () => import('../views/AdminDashboardView.vue'), meta: { requiresAdmin: true } },

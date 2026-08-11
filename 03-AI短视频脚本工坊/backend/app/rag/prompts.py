@@ -1,4 +1,4 @@
-"""Prompt templates for AI短视频脚本工坊 — 短视频分镜脚本生成引擎.
+"""Prompt templates for 视界短视频工坊 — 短视频分镜脚本生成引擎.
 
 Three distinct director modes, each with its own style, pacing, and output focus:
 - 带货类: Pain-point opening → product demo → price anchor → CTA

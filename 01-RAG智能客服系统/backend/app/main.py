@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="基于 LangChain 的企业级 RAG 知识库问答系统，支持 GraphRAG 增强检索",
+    description="电商智能客服助手 — 商品咨询自动应答 · 知识溯源 · 无缝转人工",
     lifespan=lifespan,
     docs_url="/api/docs" if _ENABLE_DOCS else None,
     redoc_url="/api/redoc" if _ENABLE_DOCS else None,

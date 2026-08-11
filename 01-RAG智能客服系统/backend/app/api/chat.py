@@ -189,6 +189,7 @@ async def ask_question(
 
     async def generate_sse():
         from app.services.chat_service import stream_chat_response
+        full_answer = ""
         async for event in stream_chat_response(
             db=db,
             session=chat_session,
@@ -196,7 +197,27 @@ async def ask_question(
             question=request.question,
         ):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            # Collect full answer from done event for data push
+            if event.get("type") == "done":
+                full_answer = event.get("data", {}).get("full_answer", "")
         yield "data: [DONE]\n\n"
+
+        # After SSE completes, push to DataHub asynchronously
+        try:
+            from shared.datahub_client import push_chat_to_datahub
+            sources = []
+            # Try to get sources from the session's latest assistant message
+            import asyncio as _asyncio
+            _asyncio.ensure_future(
+                push_chat_to_datahub(
+                    username=current_user.username,
+                    question=request.question,
+                    answer=full_answer,
+                    sources=sources,
+                )
+            )
+        except Exception:
+            pass  # DataHub push is best-effort, don't block the chat
 
     return StreamingResponse(
         generate_sse(),

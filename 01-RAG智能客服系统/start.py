@@ -1,4 +1,4 @@
-"""项目①独立启动器 — RAG智能客服系统
+"""项目①独立启动器 — 智能客服助手
 
 被 start.bat 调用，负责清理 + 启动前后端服务。
 """
@@ -12,7 +12,7 @@ FRONTEND = os.path.join(BASE, "frontend")
 def main():
     print()
     print("=" * 45)
-    print("  RAG智能客服系统 v2.0")
+    print("  智能客服助手 v2.0")
     print("  知识库问答 + AI客服")
     print("=" * 45)
 

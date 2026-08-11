@@ -1,54 +1,45 @@
-
 <template>
   <div class="app-shell">
-    <!-- Sidebar -->
-    <nav class="app-sidebar">
-      <div class="sb-brand" @click="$router.push('/lab')">
-        <span class="sb-logo">🧠</span>
-        <span class="sb-name">模型微调</span>
+    <!-- Top Navigation Bar (毛玻璃顶栏) -->
+    <header class="top-nav">
+      <div class="tn-left">
+        <span class="tn-brand" @click="$router.push('/lab')">
+          <span class="tn-logo">🧠</span>
+          <span class="tn-name">模型微调</span>
+        </span>
+        <nav class="tn-nav">
+          <span
+            v-for="item in navItems"
+            :key="item.key"
+            class="tn-item"
+            :class="{ active: currentRoute === item.key }"
+            @click="go(item.key)"
+          >
+            <span class="tn-icon">{{ item.icon }}</span>
+            {{ item.label }}
+          </span>
+        </nav>
       </div>
-
-      <div class="sb-nav">
-        <div
-          v-for="item in navItems"
-          :key="item.key"
-          class="sb-item"
-          :class="{ active: currentRoute === item.key }"
-          @click="go(item.key)"
-          :title="item.label"
-        >
-          <span class="sb-icon">{{ item.icon }}</span>
-          <span class="sb-label">{{ item.label }}</span>
-        </div>
+      <div class="tn-right">
+        <n-dropdown trigger="hover" :options="[
+          {label:'📊 数据中枢',key:'data'},
+          {label:'🤖 运营引擎',key:'engine'},
+          {label:'🧠 模型工厂',key:'model'},
+        ]" @select="jumpToPlatform">
+          <span class="tn-item">🏢 中台导航</span>
+        </n-dropdown>
+        <span class="tn-item" @click="authStore.toggleDarkMode()">
+          {{ authStore.isDarkMode ? '☀️' : '🌙' }}
+        </span>
+        <span class="tn-user-badge" @click="go('settings')">
+          <span class="tn-avatar">{{ authStore.avatar }}</span>
+          <span class="tn-username">{{ authStore.user?.display_name || authStore.user?.username }}</span>
+        </span>
+        <span class="tn-item" @click="handleLogout" title="退出">🚪</span>
       </div>
+    </header>
 
-      <div class="sb-spacer" />
-
-      <div class="sb-bottom-nav">
-        <div class="sb-item" @click="authStore.toggleDarkMode()">
-          <span class="sb-icon">{{ authStore.isDarkMode ? '☀️' : '🌙' }}</span>
-          <span class="sb-label">{{ authStore.isDarkMode ? '浅色模式' : '深色模式' }}</span>
-        </div>
-        <div class="sb-item" :class="{ active: currentRoute === 'settings' }" @click="go('settings')">
-          <span class="sb-icon">👤</span>
-          <span class="sb-label">个人中心</span>
-        </div>
-        <div class="sb-item" @click="handleLogout">
-          <span class="sb-icon">🚪</span>
-          <span class="sb-label">退出</span>
-        </div>
-      </div>
-
-      <div class="sb-user" @click="go('settings')">
-        <span class="sb-avatar">{{ authStore.avatar }}</span>
-        <div class="sb-user-info">
-          <div class="sb-username">{{ authStore.user?.display_name || authStore.user?.username }}</div>
-          <div class="sb-role">{{ authStore.isAdmin ? '管理员' : '用户' }}</div>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Main Content -->
+    <!-- Main Content (full width below nav) -->
     <main class="app-main">
       <router-view />
     </main>
@@ -69,7 +60,7 @@ const currentRoute = computed(() => {
   if (name === 'TrainingLab') return 'lab'
   if (name.startsWith('Admin')) return 'admin'
   if (name === 'Settings') return 'settings'
-  return 'chat'
+  return 'lab'
 })
 
 const navItems = computed(() => {
@@ -77,15 +68,21 @@ const navItems = computed(() => {
     { key: 'lab', icon: '🧠', label: '微调训练' },
   ]
   if (authStore.isAdmin) {
-    items.push({ key: 'admin', icon: '📚', label: '知识库管理' })
+    items.push(
+      { key: 'admin', icon: '📊', label: '管理后台' },
+    )
   }
   return items
 })
 
 function go(key: string) {
   if (key === 'lab') router.push('/lab')
-  else if (key === 'admin') router.push('/admin/kb')
+  else if (key === 'admin') router.push('/admin/dashboard')
   else if (key === 'settings') router.push('/settings')
+}
+function jumpToPlatform(k:string){
+  const urls:Record<string,string>={data:'http://localhost:3006',engine:'http://localhost:3007',model:'http://localhost:3008'}
+  if(urls[k] && urls[k]!==window.location.origin) window.open(urls[k],'_blank')
 }
 
 function handleLogout() {
@@ -95,47 +92,71 @@ function handleLogout() {
 </script>
 
 <style scoped>
-.app-shell { display: flex; height: 100vh; overflow: hidden; }
-
-/* Sidebar */
-.app-sidebar {
-  width: 220px; min-width: 220px; display: flex; flex-direction: column;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-  color: #e0e0f0; user-select: none;
+.app-shell {
+  display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
 }
-.sb-brand { display: flex; align-items: center; gap: 10px; padding: 20px 18px; cursor: pointer; }
-.sb-logo { font-size: 28px; }
-.sb-name { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: #fff; }
 
-.sb-nav { padding: 8px 10px; flex-shrink: 0; }
-.sb-item {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
-  cursor: pointer; transition: all .15s; margin-bottom: 2px; color: #b0b0d0;
+/* ── 顶部导航 — 毛玻璃 ── */
+.top-nav {
+  height: 56px; min-height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid #e8ecf1;
+  user-select: none;
 }
-.sb-item:hover { background: rgba(255,255,255,.08); color: #e8e8ff; }
-.sb-item.active { background: rgba(102,126,234,.25); color: #fff; }
-.sb-icon { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; }
-.sb-label { font-size: 14px; font-weight: 500; white-space: nowrap; }
-
-.sb-spacer { flex: 1; }
-.sb-bottom-nav { padding: 0 10px 8px; }
-
-.sb-user {
-  display: flex; align-items: center; gap: 10px; padding: 14px 16px;
-  border-top: 1px solid rgba(255,255,255,.08); cursor: pointer; margin: 0 8px;
+.tn-left { display: flex; align-items: center; gap: 4px; }
+.tn-brand {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 4px 12px 4px 0; margin-right: 8px;
+  border-right: 1px solid #e8ecf1;
 }
-.sb-avatar { font-size: 28px; }
-.sb-user-info { flex: 1; min-width: 0; }
-.sb-username { font-size: 13px; font-weight: 600; color: #e8e8ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb-role { font-size: 11px; color: #8888aa; margin-top: 1px; }
+.tn-logo { font-size: 22px; }
+.tn-name {
+  font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: 0.5px;
+}
+.tn-nav { display: flex; align-items: center; gap: 4px; }
+.tn-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  transition: all .15s; font-size: 14px; font-weight: 500; color: #475569;
+  white-space: nowrap;
+}
+.tn-item:hover { background: rgba(245,158,11,.06); color: #f59e0b; }
+.tn-item.active { background: rgba(245,158,11,.1); color: #f59e0b; font-weight: 700; }
+.tn-icon { font-size: 16px; }
 
-/* Main */
-.app-main { flex: 1; min-width: 0; background: #fafbfd; overflow: hidden; transition: background .3s; }
+.tn-right { display: flex; align-items: center; gap: 2px; }
+.tn-user-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px 4px 6px; border-radius: 20px; cursor: pointer;
+  transition: all .15s; font-size: 13px; font-weight: 500; color: #475569;
+  background: rgba(245,158,11,.04); margin: 0 4px;
+}
+.tn-user-badge:hover { background: rgba(245,158,11,.1); color: #f59e0b; }
+.tn-avatar { font-size: 22px; }
+.tn-username { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Dark mode */
-[data-theme="dark"] .app-sidebar { background: linear-gradient(180deg, #0d0d14 0%, #0f0f1a 100%); }
-[data-theme="dark"] .sb-item:hover { background: rgba(255,255,255,.05); }
-[data-theme="dark"] .sb-item.active { background: rgba(102,126,234,.2); }
-[data-theme="dark"] .sb-user { border-top-color: rgba(255,255,255,.05); }
-[data-theme="dark"] .app-main { background: #101014; }
+/* ── 主内容区 ── */
+.app-main {
+  flex: 1; min-height: 0;
+  background: #f8fafc; transition: background .3s;
+  padding-top: 56px; overflow: auto;
+}
+
+/* ── 暗色模式 ── */
+[data-theme="dark"] .top-nav {
+  background: rgba(15, 23, 42, .88); border-bottom-color: #1e293b;
+}
+[data-theme="dark"] .tn-brand { border-right-color: #1e293b; }
+[data-theme="dark"] .tn-name { color: #e2e8f0; }
+[data-theme="dark"] .tn-item { color: #94a3b8; }
+[data-theme="dark"] .tn-item:hover { background: rgba(245,158,11,.08); color: #fbbf24; }
+[data-theme="dark"] .tn-item.active { background: rgba(245,158,11,.15); color: #fbbf24; }
+[data-theme="dark"] .tn-user-badge { color: #94a3b8; background: rgba(245,158,11,.04); }
+[data-theme="dark"] .tn-user-badge:hover { background: rgba(245,158,11,.1); color: #fbbf24; }
+[data-theme="dark"] .app-main { background: #0f172a; }
 </style>

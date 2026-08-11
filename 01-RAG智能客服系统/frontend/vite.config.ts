@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       vue(),
       Components({
         resolvers: [NaiveUiResolver()],
-        dts: 'src/components.d.ts',
+        dts: false,
       }),
     ],
     resolve: {

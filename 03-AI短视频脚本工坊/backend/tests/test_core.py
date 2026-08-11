@@ -1,6 +1,6 @@
 """Core function tests: prompt mode selection, chat service, script generation.
 
-These tests verify the AI短视频脚本工坊 core pipeline:
+These tests verify the 视界短视频工坊 core pipeline:
 - Mode guide selection (带货 / 测评 / 开箱)
 - Prompt template rendering
 - Chat endpoint integration
@@ -208,7 +208,7 @@ class TestHealthCheck:
         resp = await client.get("/")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["name"] == "AI短视频脚本工坊"
+        assert data["name"] == "视界短视频工坊"
         assert data["status"] == "running"
 
     async def test_health_endpoint(self, client):

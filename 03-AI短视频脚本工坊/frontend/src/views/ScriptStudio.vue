@@ -145,7 +145,7 @@
       <EmptyState
         v-if="!resultContent && !isLoading && isNewScript"
         icon="🎬"
-        title="AI 短视频脚本工坊"
+        title="AI 视界工坊"
         description="输入产品信息，选择模板风格和目标平台，AI 帮你生成可直接拍摄的专业分镜脚本"
       >
         <template #actions>

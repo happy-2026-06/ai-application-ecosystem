@@ -5,7 +5,7 @@
     <nav class="app-sidebar">
       <div class="sb-brand" @click="$router.push('/assets')">
         <span class="sb-logo">🗂️</span>
-        <span class="sb-name">素材管理平台</span>
+        <span class="sb-name">图库管家</span>
       </div>
 
       <!-- Stats Mini -->
@@ -94,7 +94,7 @@ const currentRoute = computed(() => {
 
 const navItems = computed(() => {
   const items: { key: string; icon: string; label: string }[] = [
-    { key: 'assets', icon: '🗂️', label: '素材管理' },
+    { key: 'assets', icon: '🗂️', label: '图库管理' },
   ]
   if (authStore.isAdmin) {
     items.push({ key: 'admin', icon: '📊', label: '管理后台' })

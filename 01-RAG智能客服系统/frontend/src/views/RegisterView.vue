@@ -10,7 +10,7 @@
     <div class="reg-left">
       <div class="left-inner">
         <span class="logo-icon anim-float">✨</span>
-        <h1 class="anim-fade-in-up">加入 RAG 知识库</h1>
+        <h1 class="anim-fade-in-up">加入智能客服</h1>
         <p class="anim-fade-in-up anim-delay-1">注册即享 AI 智能商品问答</p>
         <div class="feat-list">
           <div class="feat anim-fade-in-up anim-delay-1"><span>🚀</span> 秒级响应</div>
@@ -81,7 +81,7 @@ const pwStrength = computed(()=>{
 async function reg(){
   const v=await fr.value?.validate().catch(()=>false);if(!v)return
   errorMsg.value='';ld.value=true
-  try{const ok=await auth.register({username:f.u,password:f.p,email:f.e||undefined,phone:f.ph||undefined});ld.value=false;if(ok){msg.success('注册成功！请登录');router.push('/login')}else errorMsg.value='注册失败，用户名可能已存在'}
+  try{const ok=await auth.register({username:f.u,password:f.p,email:f.e||undefined});ld.value=false;if(ok){msg.success('注册成功！请登录');router.push('/login')}else errorMsg.value='注册失败，用户名可能已存在'}
   catch(e:any){ld.value=false;const detail=e?.response?.data?.detail||'';errorMsg.value=detail||'注册失败，请稍后重试';const card=document.querySelector('.form-card');if(card){card.classList.add('shake');setTimeout(()=>card.classList.remove('shake'),500)}}
 }
 </script>

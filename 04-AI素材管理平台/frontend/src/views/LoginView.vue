@@ -16,7 +16,7 @@
       <div class="left-inner">
         <div class="logo-area">
           <span class="logo-icon">🗂️</span>
-          <h1>AI素材管理平台</h1>
+          <h1>图库资产管家</h1>
           <p>企业级数字资产管理 · 智能标签 · 多模态检索</p>
         </div>
         <div class="feature-list">

@@ -20,7 +20,7 @@
         <div class="brand-icon-wrap">
           <span class="brand-icon">✍️</span>
         </div>
-        <h1>AI自媒体内容助手</h1>
+        <h1>灵笔内容引擎</h1>
         <p>爆款标题 · 视频脚本 · 图文文案 — 一键生成</p>
       </div>
 
@@ -95,7 +95,7 @@
     </div>
 
     <!-- Footer -->
-    <p class="page-footer">AI自媒体内容助手 · LangChain + FastAPI + Vue 3</p>
+    <p class="page-footer">灵笔内容引擎 · LangChain + FastAPI + Vue 3</p>
   </div>
 </template>
 

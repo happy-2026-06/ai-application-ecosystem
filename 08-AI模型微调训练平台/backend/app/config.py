@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment / .env file."""
 
     # ── Application ──────────────────────────────────────────────────
-    APP_NAME: str = "AI模型微调训练平台"
+    APP_NAME: str = "模型定制工厂"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     SECRET_KEY: str = Field(
@@ -24,11 +24,11 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────────────────
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./data/rag_system.db",
+        default="sqlite+aiosqlite:///./data/finetune.db",
         description="Async database URL. For PostgreSQL, set postgresql+asyncpg://user:pass@host/db",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="sqlite:///./data/rag_system.db",
+        default="sqlite:///./data/finetune.db",
         description="Synchronous database URL (for Alembic migrations)",
     )
 
@@ -86,7 +86,7 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:80", "http://localhost"],
+        default=["http://localhost:3008", "http://localhost:80", "http://localhost"],
     )
 
     # ── Pre-seeded admin account ─────────────────────────────────────
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
         default="admin123",
         description="Initial admin password. CHANGE IT after first login!",
     )
-    ADMIN_EMAIL: str = "admin@rag-system.local"
+    ADMIN_EMAIL: str = "admin@finetune.local"
 
     # ── Pydantic Config ──────────────────────────────────────────────
     model_config = {
