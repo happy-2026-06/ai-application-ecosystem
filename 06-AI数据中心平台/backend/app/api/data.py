@@ -1,13 +1,15 @@
 """Data pipeline API routes."""
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status, Body
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from app.models.data import DataSet, DataVersion, DataAnnotation
 from app.core.auth import get_current_user
+from app.core.security import get_password_hash
 from app.schemas.data import (
     DataSetCreate, DataSetResponse, DataVersionResponse,
     AnnotationRequest, AnnotationResponse, QualityReport,
@@ -16,6 +18,42 @@ from app.schemas.data import (
 from app.services import data_service
 
 router = APIRouter()
+
+
+async def internal_call_or_user(
+    request: Request,
+    x_internal_call: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Accept EITHER X-Internal-Call shared secret OR normal JWT auth.
+
+    Other projects (①⑤⑧ etc.) push data via the X-Internal-Call header
+    carrying settings.INTERNAL_CALL_SECRET; these calls are treated as a
+    built-in "system" admin user. Regular users keep using JWT Bearer tokens.
+    """
+    if x_internal_call == settings.INTERNAL_CALL_SECRET:
+        # Cross-project internal call: reuse/create a dedicated system user
+        result = await db.execute(select(User).where(User.username == "system"))
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(
+                username="system",
+                email="system@ai-ecosystem.local",
+                display_name="系统内部调用",
+                hashed_password=get_password_hash(settings.INTERNAL_CALL_SECRET),
+                role="admin",
+                is_active=True,
+            )
+            db.add(user)
+            await db.flush()
+        return user
+
+    # Fall back to JWT auth (raises 401 if missing/invalid).
+    # Note: get_current_user normally resolves the token via oauth2_scheme,
+    # so extract it from the Authorization header and pass it explicitly.
+    authorization = request.headers.get("Authorization", "")
+    token = authorization[7:].strip() if authorization.startswith("Bearer ") else ""
+    return await get_current_user(token=token, db=db)
 
 
 # ── DataSets CRUD ─────────────────────────────────────────────────
@@ -249,6 +287,73 @@ async def create_dataset_version(
 
 # ── Quality Report ────────────────────────────────────────────────
 
+@router.get("/datasets/{dataset_id}/versions/compare")
+async def compare_versions(
+    dataset_id: str,
+    from_v: str,
+    to_v: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compare two version snapshots of the same dataset.
+
+    Returns both snapshots side by side plus a computed diff
+    (item count, AI annotation coverage, verification ratio,
+    category distribution and average confidence changes).
+    """
+    result = await db.execute(
+        select(DataVersion).where(
+            DataVersion.dataset_id == dataset_id,
+            DataVersion.id.in_([from_v, to_v]),
+        )
+    )
+    versions = {str(v.id): v for v in result.scalars().all()}
+    if from_v not in versions or to_v not in versions:
+        raise HTTPException(status_code=404, detail="版本不存在")
+
+    v_from = versions[from_v]
+    v_to = versions[to_v]
+    meta_from = v_from.snapshot_meta or {}
+    meta_to = v_to.snapshot_meta or {}
+
+    # Category diff (union of both snapshots' categories)
+    cats_from = meta_from.get("categories", {})
+    cats_to = meta_to.get("categories", {})
+    category_diff = {}
+    for cat in set(cats_from) | set(cats_to):
+        delta = cats_to.get(cat, 0) - cats_from.get(cat, 0)
+        if delta != 0:
+            category_diff[cat] = delta
+
+    return {
+        "dataset_id": dataset_id,
+        "from": {
+            "id": str(v_from.id),
+            "version_number": v_from.version_number,
+            "snapshot": meta_from,
+            "quality_score": v_from.quality_score,
+            "created_at": v_from.created_at.isoformat() if v_from.created_at else None,
+        },
+        "to": {
+            "id": str(v_to.id),
+            "version_number": v_to.version_number,
+            "snapshot": meta_to,
+            "quality_score": v_to.quality_score,
+            "created_at": v_to.created_at.isoformat() if v_to.created_at else None,
+        },
+        "diff": {
+            "item_count": meta_to.get("item_count", 0) - meta_from.get("item_count", 0),
+            "ai_annotated": meta_to.get("ai_annotated", 0) - meta_from.get("ai_annotated", 0),
+            "human_verified": meta_to.get("human_verified", 0) - meta_from.get("human_verified", 0),
+            "avg_confidence": round(
+                meta_to.get("avg_confidence", 0) - meta_from.get("avg_confidence", 0), 4
+            ),
+            "quality_score": (v_to.quality_score or 0) - (v_from.quality_score or 0),
+            "category_changes": category_diff,
+        },
+    }
+
+
 @router.get("/datasets/{dataset_id}/quality")
 async def get_quality_report(
     dataset_id: str,
@@ -285,13 +390,22 @@ async def get_dashboard(
         select(DataSet).order_by(DataSet.updated_at.desc()).limit(6)
     )).scalars().all()
 
+    # Real average quality score across all annotated items (not hardcoded)
+    avg_conf = (await db.execute(
+        select(func.avg(DataAnnotation.confidence)).where(DataAnnotation.confidence.isnot(None))
+    )).scalar()
+    avg_confidence = round(float(avg_conf or 0), 4)
+    coverage = ai_count / ann_count if ann_count else 0.0
+    ver_ratio = verified / ann_count if ann_count else 0.0
+    avg_quality = round((avg_confidence * 0.4 + coverage * 0.3 + ver_ratio * 0.3) * 100, 1)
+
     return {
         "total_datasets": ds_count,
         "total_items": ann_count,
         "total_annotations": ai_count,
         "ai_annotated": ai_count,
         "human_verified": verified,
-        "avg_quality_score": 0,
+        "avg_quality_score": avg_quality,
         "recent_datasets": list(recent),
     }
 
@@ -301,7 +415,7 @@ async def get_dashboard(
 @router.post("/external/ingest")
 async def external_ingest(
     body: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(internal_call_or_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Receive data from other projects (客服/话术/内容 etc.)."""
@@ -389,6 +503,7 @@ async def export_for_finetune(
 @router.get("/datasets/{dataset_id}/training-cache")
 async def get_training_cache(
     dataset_id: str,
+    current_user: User = Depends(internal_call_or_user),
     db: AsyncSession = Depends(get_db),
 ):
     """⑧训练完成后拉取结构化训练数据缓存。

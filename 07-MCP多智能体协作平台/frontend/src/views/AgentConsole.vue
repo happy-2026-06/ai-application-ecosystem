@@ -28,7 +28,10 @@
           <div v-for="a in agents" :key="a.id" class="agent-card" :class="a.status">
             <div class="ag-header">
               <span class="ag-icon">{{capIcon(a.capability)}}</span>
-              <n-tag :type="a.status==='online'?'success':'default'" size="tiny">{{a.status==='online'?'在线':'离线'}}</n-tag>
+              <span class="ag-status" :title="heartbeatTitle(a)">
+                <span class="hb-dot" :class="isAgentOnline(a)?'hb-dot-on':'hb-dot-off'"/>
+                <n-tag :type="isAgentOnline(a)?'success':'default'" size="tiny">{{isAgentOnline(a)?'在线':'离线'}}</n-tag>
+              </span>
             </div>
             <div class="ag-name">{{a.name}}</div>
             <div class="ag-role">{{a.role}}</div>
@@ -154,7 +157,7 @@
           <n-form-item label="选择Agent" v-if="agents.length">
             <n-checkbox-group v-model:value="tf.agentIds">
               <n-space>
-                <n-checkbox v-for="a in agents.filter(a=>a.status==='online')" :key="a.id" :value="a.id">{{capIcon(a.capability)}} {{a.name}}</n-checkbox>
+                <n-checkbox v-for="a in agents.filter(a=>isAgentOnline(a))" :key="a.id" :value="a.id">{{capIcon(a.capability)}} {{a.name}}</n-checkbox>
               </n-space>
             </n-checkbox-group>
             <span style="font-size:11px;color:#94a3b8;margin-top:4px">不选则自动使用全部在线Agent</span>
@@ -222,6 +225,15 @@ const capIcon=(c:string)=>({analysis:'📊',content:'✍️',decision:'🧠',exe
 const statusLabel=(s:string)=>({pending:'排队中',running:'执行中',completed:'已完成',failed:'失败'})[s]||s
 const modeLabel=(m:string)=>({pipeline:'🔗 流水线',parallel:'⚡ 并行',vote:'🗳️ 投票',debate:'💬 辩论'})[m]||m
 const formatDate=(d:string)=>{const dt=new Date(d);return `${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,'0')}`}
+
+// Agent online status — based on heartbeat data from the backend.
+// Backend computes `online` from last_heartbeat (5 min window) with a
+// status fallback; here we keep a local fallback for older backends.
+const isAgentOnline=(a:any):boolean => a.online !== undefined ? !!a.online : a.status==='online'
+function heartbeatTitle(a:any):string{
+  if(a.last_heartbeat) return `最后心跳: ${formatDate(a.last_heartbeat)}`
+  return isAgentOnline(a) ? '在线（尚未记录心跳）' : '离线（心跳超时或未上线）'
+}
 
 // Agent prompt previews (shows each agent's specialty)
 function getAgentPromptPreview(name:string):string{
@@ -311,6 +323,11 @@ function handleSSEEvent(e:any){
     case 'agent_start':
       liveSteps.value.push({name:e.agent_name,status:'running',statusText:'执行中...',icon:capIcon(e.agent_name),preview:''})
       break
+    case 'decomposing': {
+      const subs = (e.subtasks||[]).map((s:any)=>`• ${s.agent_name}: ${s.subtask}`).join('\n')
+      liveSteps.value.push({name:'🧩 任务拆解',status:'completed',statusText:'拆解完成',icon:'🧩',preview: subs || e.message || '已为各Agent生成专属子任务'})
+      break
+    }
     case 'agent_done':
       const done = liveSteps.value.find(s=>s.name===e.agent_name && s.status==='running')
       if(done){done.status='completed';done.statusText='✅ 完成';done.duration_ms=e.duration_ms;done.preview=e.output_preview}
@@ -407,6 +424,10 @@ onMounted(loadData)
 .ag-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .ag-icon{font-size:22px}.ag-name{font-size:14px;font-weight:700;color:#1e293b}.ag-role{font-size:12px;color:#94a3b8;margin-top:2px}
 .ag-prompt-preview{font-size:11px;color:#a78bfa;margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;line-height:1.4}
+.ag-status{display:flex;align-items:center;gap:6px}
+.hb-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.hb-dot-on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6)}
+.hb-dot-off{background:#cbd5e1}
 
 /* Filter bar */
 .filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
@@ -482,5 +503,6 @@ onMounted(loadData)
 [data-theme="dark"] .ls-agent{color:#e2e8f0}
 [data-theme="dark"] .live-panel{background:linear-gradient(135deg,#1a1525,#1e1830);border-color:#4c1d95}
 [data-theme="dark"] .ag-prompt-preview{border-top-color:#2d2d3d;color:#8b5cf6}
+[data-theme="dark"] .hb-dot-off{background:#4a4a5a}
 [data-theme="dark"] .filter-bar .filter-count{color:#7b6f9a}
 </style>

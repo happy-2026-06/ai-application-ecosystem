@@ -31,10 +31,16 @@ export interface CustomerType {
   persona: string
 }
 
+export interface ScoreTrendEntry {
+  round: number
+  overall: number
+  [dimension: string]: number
+}
+
 export interface TrainingReport {
   session: TrainingSession
   rounds: TrainingRound[]
-  score_trend: { round: number; overall: number; [key: string]: number }[]
+  score_trend: ScoreTrendEntry[]
   strengths: string[]
   improvements: string[]
   recommendation: string

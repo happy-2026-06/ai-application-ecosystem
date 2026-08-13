@@ -32,6 +32,22 @@
       </div>
     </div>
 
+    <!-- RLHF feedback data -->
+    <div class="rlhf-card" v-if="rlhf">
+      <div class="rlhf-head">
+        <div>
+          <h2>💬 RLHF 反馈数据</h2>
+          <p>来自 C 端对话反馈的人类偏好数据，可用于奖励模型训练 / 偏好优化 (DPO)</p>
+        </div>
+        <n-button size="small" type="primary" @click="exportRlhf" :loading="rlhfLoading">⬇ 导出偏好数据</n-button>
+      </div>
+      <div class="rlhf-stats">
+        <div class="rlhf-stat"><div class="rlhf-v">{{rlhf.total}}</div><div class="rlhf-l">反馈总数</div></div>
+        <div class="rlhf-stat"><div class="rlhf-v green">{{rlhf.positive}}</div><div class="rlhf-l">好评 (positive)</div></div>
+        <div class="rlhf-stat"><div class="rlhf-v red">{{rlhf.negative}}</div><div class="rlhf-l">差评 (negative)</div></div>
+      </div>
+    </div>
+
     <!-- Section header -->
     <div class="section-header">
       <h2>🧪 微调任务</h2>
@@ -197,9 +213,10 @@ const router = useRouter(); const msg = useMessage()
 const stats = ref<any>(null); const tasks = ref<any[]>([]); const showCreate = ref(false); const creating = ref(false)
 const tf = ref({name:'',base:'deepseek-chat',method:'qlora',lr:0.0002,epochs:3})
 const showDetail = ref(false); const selTask = ref<any>(null); const abPrompt = ref(''); const abLoading = ref(false); const abResults = ref<any[]>([])
+const rlhf = ref<any>(null); const rlhfLoading = ref(false)
 
-const statusLabel=(s:string)=>({created:'已创建',running:'训练中',completed:'已完成',failed:'失败'}[s]||s)
-const statusTagType=(s:string)=>({created:'default',running:'info',completed:'success',failed:'error'}[s]||'default') as any
+const statusLabel=(s:string)=>({created:'已创建',running:'训练中',stopped:'已停止',completed:'已完成',failed:'失败'}[s]||s)
+const statusTagType=(s:string)=>({created:'default',running:'info',stopped:'warning',completed:'success',failed:'error'}[s]||'default') as any
 
 async function loadData(){
   try{
@@ -209,6 +226,27 @@ async function loadData(){
     ])
     stats.value = r.data; tasks.value = t.data
   }catch{}
+  await loadRlhf()
+}
+
+async function loadRlhf(){
+  try{const r=await apiClient.get('/finetune/rlhf/preference-data');rlhf.value=r.data}catch{}
+}
+
+async function exportRlhf(){
+  rlhfLoading.value=true
+  try{
+    const r=await apiClient.get('/finetune/rlhf/preference-data')
+    rlhf.value=r.data
+    const blob=new Blob([JSON.stringify(r.data,null,2)],{type:'application/json'})
+    const url=URL.createObjectURL(blob)
+    const a=document.createElement('a')
+    a.href=url; a.download='rlhf-preference-data-'+new Date().toISOString().slice(0,10)+'.json'
+    document.body.appendChild(a); a.click(); a.remove()
+    URL.revokeObjectURL(url)
+    msg.success('偏好数据已导出 ('+(r.data.total??0)+' 条)')
+  }catch{msg.error('导出失败')}
+  finally{rlhfLoading.value=false}
 }
 
 async function doCreate(){
@@ -262,6 +300,16 @@ onMounted(loadData)
 /* Section header */
 .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .section-header h2{font-size:17px;font-weight:700;color:#1e293b;margin:0}
+
+/* RLHF feedback */
+.rlhf-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;margin-bottom:32px}
+.rlhf-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}
+.rlhf-head h2{font-size:17px;font-weight:700;color:#1e293b;margin:0 0 4px}
+.rlhf-head p{font-size:13px;color:#94a3b8;margin:0}
+.rlhf-stats{display:flex;gap:12px}
+.rlhf-stat{flex:1;text-align:center;padding:16px;background:#f8fafc;border-radius:12px}
+.rlhf-v{font-size:28px;font-weight:800;color:#f59e0b}.rlhf-v.green{color:#22c55e}.rlhf-v.red{color:#ef4444}
+.rlhf-l{font-size:12px;color:#94a3b8;margin-top:4px}
 .create-btn{height:42px!important;font-weight:700!important;border-radius:12px!important;background:linear-gradient(135deg,#f59e0b,#d97706)!important;border:none!important;box-shadow:0 4px 16px rgba(245,158,11,.2)}
 .create-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(245,158,11,.35)!important}
 

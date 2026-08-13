@@ -18,8 +18,8 @@
           <template #prefix><span>🔍</span></template>
         </n-input>
         <n-button-group style="margin-left: 8px;">
-          <n-button :type="searchMode === 'text' ? 'primary' : 'default'" @click="searchMode = 'text'">📝 文搜图</n-button>
-          <n-button :type="searchMode === 'image' ? 'primary' : 'default'" @click="searchMode = 'image'">🖼️ 图搜图</n-button>
+          <n-button :type="searchMode === 'text' ? 'primary' : 'default'" @click="setSearchMode('text')">📝 文搜图</n-button>
+          <n-button :type="searchMode === 'image' ? 'primary' : 'default'" @click="setSearchMode('image')">🖼️ 图搜图</n-button>
         </n-button-group>
       </div>
       <div class="topbar-actions">
@@ -82,16 +82,36 @@
       <main class="asset-grid-area">
         <!-- 图搜图上传区 -->
         <div v-if="searchMode === 'image'" class="image-search-zone fade-in">
-          <div class="image-search-dropzone" @click="triggerImageSearch" @dragover.prevent @drop.prevent="onDropImageSearch">
-            <div class="is-icon">🖼️</div>
-            <p>点击或拖拽图片到这里进行以图搜图</p>
-            <span class="is-hint">目前基于文件名语义匹配，视觉搜索(CLIP)即将上线</span>
+          <div
+            class="image-search-dropzone"
+            :class="{ searching: imageSearching }"
+            @click="!imageSearching && triggerImageSearch()"
+            @dragover.prevent
+            @drop.prevent="onDropImageSearch"
+          >
+            <div class="is-icon">{{ imageSearching ? '🔍' : '🖼️' }}</div>
+            <template v-if="imageSearching">
+              <p>AI 正在理解图片并搜索相似素材…</p>
+              <span class="is-hint">这可能需要几秒钟</span>
+            </template>
+            <template v-else>
+              <p>点击或拖拽图片到这里进行以图搜图</p>
+              <span class="is-hint">AI 将理解图片内容，在素材库中搜索相似素材（视觉搜索 CLIP 即将上线）</span>
+            </template>
             <input ref="imageSearchInputRef" type="file" accept="image/*" style="display:none" @change="onImageSearchFile" />
           </div>
           <div v-if="imageSearchFile" class="image-search-preview">
             <img :src="imageSearchPreviewUrl" alt="搜索图片" class="is-preview-img" />
             <span class="is-preview-name">{{ imageSearchFile.name }}</span>
             <n-button size="small" @click="clearImageSearch">✕ 清除</n-button>
+          </div>
+          <div v-if="imageSearchResult" class="image-search-result fade-in">
+            <div class="isr-header">
+              <span class="isr-title">🖼️ 图搜图结果 · {{ imageSearchResult.total }} 个相似素材</span>
+              <n-button text size="tiny" @click="clearImageSearchResults">✕ 返回全部素材</n-button>
+            </div>
+            <div class="isr-desc">AI 理解：{{ imageSearchResult.description }}</div>
+            <div v-if="imageSearchResult.note" class="isr-note">⚠️ {{ imageSearchResult.note }}</div>
           </div>
         </div>
 
@@ -150,23 +170,30 @@
         </div>
 
         <div v-else-if="assets.length === 0" class="grid-empty slide-up">
-          <div class="empty-icon">📁</div>
-          <h2>还没有素材</h2>
-          <p>点击右上角"上传素材"开始管理你的数字资产</p>
-          <div class="feature-hints">
-            <div class="hint-card">
-              <div class="hc-icon">🏷️</div>
-              <div>AI 自动打标签</div>
+          <template v-if="imageSearchResult">
+            <div class="empty-icon">🔍</div>
+            <h2>没有找到相似素材</h2>
+            <p>试试换一张图片，或给图片起一个更具体的文件名后重试</p>
+          </template>
+          <template v-else>
+            <div class="empty-icon">📁</div>
+            <h2>还没有素材</h2>
+            <p>点击右上角"上传素材"开始管理你的数字资产</p>
+            <div class="feature-hints">
+              <div class="hint-card">
+                <div class="hc-icon">🏷️</div>
+                <div>AI 自动打标签</div>
+              </div>
+              <div class="hint-card">
+                <div class="hc-icon">🔍</div>
+                <div>自然语言搜索</div>
+              </div>
+              <div class="hint-card">
+                <div class="hc-icon">📋</div>
+                <div>版本管理</div>
+              </div>
             </div>
-            <div class="hint-card">
-              <div class="hc-icon">🔍</div>
-              <div>自然语言搜索</div>
-            </div>
-            <div class="hint-card">
-              <div class="hc-icon">📋</div>
-              <div>版本管理</div>
-            </div>
-          </div>
+          </template>
         </div>
 
         <div v-else class="asset-grid fade-in">
@@ -416,6 +443,8 @@ const statusOptions = [
 const imageSearchInputRef = ref<HTMLInputElement | null>(null)
 const imageSearchFile = ref<File | null>(null)
 const imageSearchPreviewUrl = ref('')
+const imageSearching = ref(false)
+const imageSearchResult = ref<{ description: string; note: string | null; total: number } | null>(null)
 
 // ── Free stock photo modal ──
 const showFreeStockModal = ref(false)
@@ -438,8 +467,8 @@ function typeIcon(type: string): string {
   return '📁'
 }
 
-function isImage(asset: AssetItem): boolean {
-  return (asset.file_type || '').startsWith('image')
+function isImage(asset: AssetItem | null | undefined): boolean {
+  return (asset?.file_type || '').startsWith('image')
 }
 
 /** Build a token-authenticated URL for <img>/<a> elements */
@@ -762,6 +791,7 @@ async function saveStatus(value: string) {
 function triggerImageSearch() { imageSearchInputRef.value?.click() }
 
 function onDropImageSearch(e: DragEvent) {
+  if (imageSearching.value) return
   const file = e.dataTransfer?.files?.[0]
   if (file && file.type.startsWith('image')) {
     handleImageSearchFile(file)
@@ -772,17 +802,44 @@ function onImageSearchFile(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (file) handleImageSearchFile(file)
+  input.value = ''
 }
 
-function handleImageSearchFile(file: File) {
+async function handleImageSearchFile(file: File) {
   imageSearchFile.value = file
   imageSearchPreviewUrl.value = URL.createObjectURL(file)
-  // Extract search keyword from filename
-  const name = file.name.replace(/\.[^.]+$/, '')
-  searchText.value = name
-  searchMode.value = 'text'  // Fall back to text search until CLIP is integrated
-  handleSearch()
-  message.info('已根据文件名进行语义搜索 (视觉搜索即将上线)')
+  imageSearching.value = true
+  imageSearchResult.value = null
+  try {
+    const res = await assetApi.searchByImage(file)
+    assets.value = res.data.items
+    totalPages.value = 1
+    currentPage.value = 1
+    searchText.value = ''
+    imageSearchResult.value = {
+      description: res.data.description,
+      note: res.data.note,
+      total: res.data.total,
+    }
+    if (res.data.fallback) {
+      message.warning('视觉模型未就绪，已按文件名关键词搜索')
+    } else if (res.data.total > 0) {
+      message.success(`找到 ${res.data.total} 个相似素材`)
+    } else {
+      message.info('没有找到相似素材，试试换一张图片')
+    }
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail || '图搜图失败'
+    message.error('图搜图失败: ' + detail)
+  } finally {
+    imageSearching.value = false
+  }
+}
+
+function setSearchMode(mode: 'text' | 'image') {
+  if (searchMode.value === mode) return
+  searchMode.value = mode
+  if (mode === 'text') clearImageSearchResults()
 }
 
 function clearImageSearch() {
@@ -791,6 +848,12 @@ function clearImageSearch() {
     URL.revokeObjectURL(imageSearchPreviewUrl.value)
     imageSearchPreviewUrl.value = ''
   }
+}
+
+function clearImageSearchResults() {
+  imageSearchResult.value = null
+  clearImageSearch()
+  loadAssets()
 }
 
 // ── Preview ──
@@ -908,6 +971,7 @@ async function handleUrlImport() {
   background: var(--bg-surface); transition: all .2s var(--ease-smooth);
 }
 .image-search-dropzone:hover { border-color: var(--primary); background: var(--primary-light); }
+.image-search-dropzone.searching { cursor: wait; opacity: .7; pointer-events: none; }
 .is-icon { font-size: 48px; margin-bottom: 10px; }
 .image-search-dropzone p { margin: 0 0 6px; font-size: 14px; color: var(--text-secondary); font-weight: 600; }
 .is-hint { font-size: 12px; color: var(--text-muted); }
@@ -918,6 +982,14 @@ async function handleUrlImport() {
 }
 .is-preview-img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
 .is-preview-name { flex: 1; font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-search-result {
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-light);
+}
+.isr-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.isr-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.isr-desc { margin-top: 6px; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.isr-note { margin-top: 4px; font-size: 11px; color: #D97706; }
 
 /* ═══ Upload Panel ═══ */
 .upload-panel {
@@ -1105,6 +1177,8 @@ async function handleUrlImport() {
 [data-theme="dark"] .image-search-dropzone { background: var(--bg-surface); border-color: var(--border); }
 [data-theme="dark"] .image-search-dropzone:hover { background: var(--primary-light); }
 [data-theme="dark"] .image-search-preview { background: var(--bg-card); border-color: var(--border); }
+[data-theme="dark"] .image-search-result { background: var(--bg-card); border-color: var(--border); }
+[data-theme="dark"] .isr-note { color: #FBBF24; }
 [data-theme="dark"] .upload-panel { background: var(--bg-card); border-color: var(--border); }
 [data-theme="dark"] .up-header { background: var(--bg-surface); }
 [data-theme="dark"] .upload-item { background: var(--bg-surface); border-color: var(--border); }

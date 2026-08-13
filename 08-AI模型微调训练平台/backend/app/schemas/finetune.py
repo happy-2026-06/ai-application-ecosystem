@@ -16,7 +16,8 @@ class FineTuneCreate(BaseModel):
 class FineTuneResponse(BaseModel):
     id: str; user_id: str; name: str; base_model: str; method: str
     status: str; hyperparams: dict | None = None
-    loss_history: list | None = None; eval_metrics: dict | None = None
+    loss_history: list | None = None; lr_history: list | None = None
+    eval_metrics: dict | None = None
     duration_seconds: int | None = None
     created_at: datetime; updated_at: datetime
     model_config = {"from_attributes": True}
@@ -26,6 +27,7 @@ class ModelVersionResponse(BaseModel):
     id: str; task_id: str; version_number: int; model_name: str
     file_path: str | None = None; size_mb: float | None = None
     is_deployed: bool; api_endpoint: str | None = None; created_at: datetime
+    eval_metrics: dict | None = None
     model_config = {"from_attributes": True}
 
 

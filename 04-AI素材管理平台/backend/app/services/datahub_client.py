@@ -44,6 +44,20 @@ async def push_training_to_datahub(
     return await _push("话术教练", "training_data", texts, f"话术训练-{customer_type}客户")
 
 
+async def push_asset_tags_to_datahub(
+    filename: str,
+    ai_description: str,
+    ai_tags: list[str],
+) -> bool:
+    """Push an asset's AI-generated tags/description to the data hub.
+
+    The hub uses these as annotation reference material (④ → ⑥ 数据飞轮).
+    """
+    tags_str = ", ".join(ai_tags) if ai_tags else ""
+    text = f"素材: {filename} | 描述: {ai_description} | 标签: {tags_str}"
+    return await _push("图库管家", "asset_tags", [text], "素材标签参考")
+
+
 async def _push(
     source_project: str,
     data_type: str,
@@ -87,7 +101,7 @@ def _get_admin_auth_header() -> dict:
     Uses a pre-login approach: try to get a token via login endpoint.
     Falls back to no auth (data hub accepts internal calls without auth).
     """
-    return {"X-Internal-Call": "true"}
+    return {"X-Internal-Call": "ai-ecosystem-internal-2026"}
 
 
 async def push_generated_content_to_datahub(

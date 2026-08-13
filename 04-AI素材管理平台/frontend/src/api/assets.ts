@@ -55,6 +55,15 @@ export interface PopularTags {
   tags: string[]
 }
 
+export interface ImageSearchResponse {
+  description: string
+  keywords: string[]
+  fallback: boolean
+  note: string | null
+  items: AssetItem[]
+  total: number
+}
+
 export const assetApi = {
   /** List assets with optional filters */
   list(params?: AssetListParams) {
@@ -113,6 +122,15 @@ export const assetApi = {
   /** Get popular tags */
   getPopularTags() {
     return apiClient.get<PopularTags>('/assets/tags/popular')
+  },
+
+  /** 以图搜图: upload an image, AI generates a description and searches similar assets */
+  searchByImage(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<ImageSearchResponse>('/assets/search-by-image', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
   },
 
   /** Get free stock photos (no API key required) */

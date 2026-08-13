@@ -7,9 +7,7 @@
       <n-gi v-for="s in statsCards" :key="s.label">
         <div class="stat-card" :style="{borderTop:'3px solid '+s.color}">
           <div class="stat-icon">{{s.icon}}</div>
-          <n-statistic :label="s.label">
-            <template #value><span :style="{color:s.color}">{{s.value}}</span></template>
-          </n-statistic>
+          <n-statistic :label="s.label" :value="s.value" />
         </div>
       </n-gi>
     </n-grid>

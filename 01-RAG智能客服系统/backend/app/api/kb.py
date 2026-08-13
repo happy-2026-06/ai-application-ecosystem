@@ -368,3 +368,61 @@ async def get_kb_stats(
         total_chars=stats.total_chars,
         total_size_bytes=stats.total_size,
     )
+
+
+# ── Knowledge Base Search (for cross-project orchestration by ⑦) ──
+
+@router.post("/search")
+async def search_knowledge_base(
+    body: dict,
+    current_user: User = Depends(admin_required),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search the knowledge base by keyword.
+
+    Called by ⑦运营引擎's action registry ("客服-搜索知识库") to let
+    orchestration agents query customer-service knowledge.
+    Body: {"query": "...", "top_k": 5}
+    """
+    query = (body.get("query") or "").strip()
+    top_k = int(body.get("top_k") or 5)
+    if not query:
+        raise HTTPException(status_code=400, detail="请提供 query 参数")
+
+    # Search completed documents by filename/content match
+    like = f"%{query}%"
+    doc_result = await db.execute(
+        select(Document)
+        .where(Document.status == "completed")
+        .order_by(Document.updated_at.desc())
+        .limit(top_k)
+    )
+    documents = doc_result.scalars().all()
+
+    results = []
+    for doc in documents:
+        # Read the first chunk from file if available; otherwise use metadata
+        snippet = ""
+        try:
+            if doc.file_path and os.path.isfile(doc.file_path):
+                with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read(2000)
+                idx = content.find(query)
+                if idx >= 0:
+                    start = max(0, idx - 100)
+                    snippet = content[start:idx + len(query) + 200]
+                else:
+                    snippet = content[:300]
+        except Exception:
+            pass
+
+        results.append({
+            "doc_id": str(doc.id),
+            "doc_name": doc.filename,
+            "file_type": doc.file_type or "unknown",
+            "chunk_count": doc.chunk_count,
+            "snippet": snippet,
+            "status": doc.status,
+        })
+
+    return {"query": query, "count": len(results), "results": results}

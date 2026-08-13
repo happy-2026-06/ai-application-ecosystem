@@ -92,9 +92,9 @@ function formatSize(bytes: number): string {
   return `${size.toFixed(1)} ${units[i]}`
 }
 
-function typeLabel(type: string): string {
+function typeLabel(type: string | number): string {
   const map: Record<string, string> = { image: '🖼️ 图片', video: '🎬 视频', document: '📄 文档' }
-  return map[type] || type
+  return map[String(type)] || String(type)
 }
 
 function pctOfTotal(count: number): number {

@@ -16,6 +16,7 @@
           <n-button size="small" @click="fetchAll" :loading="loading">🔄 刷新</n-button>
           <n-button size="small" type="primary" @click="runClean" :loading="cleaning">🧹 清洗</n-button>
           <n-button size="small" type="primary" @click="runAnnotate" :loading="annotating">🏷️ AI标注</n-button>
+          <n-button size="small" type="primary" secondary @click="showIngest=true">📥 接收数据</n-button>
           <n-dropdown trigger="click" :options="exportOptions" @select="handleExport">
             <n-button size="small" type="primary" secondary>📤 导出</n-button>
           </n-dropdown>
@@ -67,6 +68,9 @@
               <n-tag v-if="item.sentiment" size="tiny" :type="sentimentType(item.sentiment)" round>{{ sentimentEmoji(item.sentiment) }} {{ item.sentiment }}</n-tag>
               <span class="an-confidence" v-if="item.confidence">置信{{ (item.confidence*100).toFixed(0) }}%</span>
               <n-tag size="tiny" :type="item.is_verified?'success':'default'">{{ item.is_verified?'✅ 已验证':'未验证' }}</n-tag>
+              <span class="an-actions">
+                <n-button size="tiny" quaternary type="primary" @click="openVerify(item)">✏️ 验证/修正</n-button>
+              </span>
             </div>
           </div>
           <div v-if="annotations.length===0 && !loading" class="empty-state">暂无数据，点击"📥 接收数据"接入跨系统数据</div>
@@ -113,7 +117,10 @@
         <div class="right-panel">
           <div class="panel-header">
             <h3>📜 版本历史</h3>
-            <n-button size="tiny" @click="showCreateVer=true">+ 新版本</n-button>
+            <div style="display:flex;gap:6px">
+              <n-button size="tiny" @click="openCompare" :disabled="versions.length<2">📊 对比</n-button>
+              <n-button size="tiny" @click="showCreateVer=true">+ 新版本</n-button>
+            </div>
           </div>
           <div v-if="versions.length" class="panel-body">
             <div v-for="v in versions" :key="v.id" class="version-item">
@@ -137,6 +144,64 @@
           <n-form-item label="变更说明"><n-input v-model:value="verForm.log" type="textarea" placeholder="如：新增500条数据+清洗去重"/></n-form-item>
         </n-form>
         <n-button type="primary" block @click="createVersion" :loading="creatingVer">创建版本</n-button>
+      </div>
+    </n-modal>
+
+    <!-- Ingest Data Modal -->
+    <n-modal v-model:show="showIngest" title="📥 接收数据">
+      <div style="padding:16px">
+        <n-form label-placement="top">
+          <n-form-item label="粘贴数据（每行一条）">
+            <n-input v-model:value="ingestForm.texts" type="textarea" :rows="8" placeholder="每行一条数据&#10;例如：&#10;Q: 如何退货？ A: 联系客服提交订单号&#10;这个产品性价比很高"/>
+          </n-form-item>
+        </n-form>
+        <n-button type="primary" block @click="submitIngest" :loading="ingesting">接入数据集</n-button>
+      </div>
+    </n-modal>
+
+    <!-- Verify Annotation Modal -->
+    <n-modal v-model:show="showVerify" title="✏️ 验证/修正标注">
+      <div style="padding:16px" v-if="verifyItem">
+        <div class="verify-text">{{ verifyItem.data_item }}</div>
+        <n-form label-placement="top" style="margin-top:12px">
+          <n-form-item label="标签 (Label)">
+            <n-input v-model:value="verifyForm.label" placeholder="如：用户问题 / 正面评价" />
+          </n-form-item>
+          <n-form-item label="分类 (Category)">
+            <n-select v-model:value="verifyForm.category" :options="[
+              {label:'qa 问答',value:'qa'},{label:'content 内容',value:'content'},
+              {label:'review 评价',value:'review'},{label:'data 通用',value:'data'},{label:'other 其他',value:'other'}]" />
+          </n-form-item>
+          <n-form-item label="情感 (Sentiment)">
+            <n-select v-model:value="verifyForm.sentiment" :options="[
+              {label:'😊 positive',value:'positive'},{label:'😐 neutral',value:'neutral'},{label:'😞 negative',value:'negative'}]" />
+          </n-form-item>
+        </n-form>
+        <n-button type="primary" block @click="submitVerify" :loading="verifying">保存修正</n-button>
+      </div>
+    </n-modal>
+
+    <!-- Version Compare Modal -->
+    <n-modal v-model:show="showCompare" title="📊 版本对比" style="width:640px">
+      <div style="padding:16px" v-if="compareResult">
+        <div class="cmp-header">
+          <span class="cmp-v">v{{ compareResult.from.version_number }}</span>
+          <span class="cmp-arrow">→</span>
+          <span class="cmp-v">v{{ compareResult.to.version_number }}</span>
+        </div>
+        <div class="cmp-grid">
+          <div class="cmp-cell"><div class="cc-v" :class="{pos:compareResult.diff.item_count>0,neg:compareResult.diff.item_count<0}">{{ compareResult.diff.item_count>0?'+':'' }}{{ compareResult.diff.item_count }}</div><div class="cc-l">条目变化</div></div>
+          <div class="cmp-cell"><div class="cc-v" :class="{pos:compareResult.diff.ai_annotated>0,neg:compareResult.diff.ai_annotated<0}">{{ compareResult.diff.ai_annotated>0?'+':'' }}{{ compareResult.diff.ai_annotated }}</div><div class="cc-l">AI标注变化</div></div>
+          <div class="cmp-cell"><div class="cc-v" :class="{pos:compareResult.diff.human_verified>0,neg:compareResult.diff.human_verified<0}">{{ compareResult.diff.human_verified>0?'+':'' }}{{ compareResult.diff.human_verified }}</div><div class="cc-l">人工验证变化</div></div>
+          <div class="cmp-cell"><div class="cc-v" :class="{pos:compareResult.diff.quality_score>0,neg:compareResult.diff.quality_score<0}">{{ compareResult.diff.quality_score>0?'+':'' }}{{ compareResult.diff.quality_score.toFixed(1) }}</div><div class="cc-l">质量分变化</div></div>
+        </div>
+        <div v-if="compareResult.diff.category_changes && Object.keys(compareResult.diff.category_changes).length" class="cmp-cats">
+          <div class="q-subtitle">分类变化</div>
+          <div v-for="(delta,cat) in compareResult.diff.category_changes" :key="cat" class="q-bar-row">
+            <span class="q-bar-label">{{ cat }}</span><span :class="delta>0?'pos':'neg'">{{ delta>0?'+':'' }}{{ delta }}</span>
+          </div>
+        </div>
+        <div v-else class="no-data">两版本分类分布无变化</div>
       </div>
     </n-modal>
   </div>
@@ -163,6 +228,19 @@ const quality = ref<any>(null)
 const versions = ref<any[]>([])
 const showCreateVer = ref(false); const creatingVer = ref(false)
 const verForm = ref({log:''})
+
+// Version compare
+const showCompare = ref(false); const compareResult = ref<any>(null)
+const compareFrom = ref(''); const compareTo = ref('')
+
+// Ingest data
+const showIngest = ref(false); const ingesting = ref(false)
+const ingestForm = ref({texts:''})
+
+// Verify annotation
+const showVerify = ref(false); const verifying = ref(false)
+const verifyItem = ref<any>(null)
+const verifyForm = ref({label:'',category:'',sentiment:''})
 
 const categoryOptions = [
   {label:'全部',value:null},{label:'qa',value:'qa'},{label:'content',value:'content'},
@@ -243,6 +321,46 @@ async function handleExport(key:string){
 
 function toggleQuality(){showQuality.value=!showQuality.value;if(showQuality.value&&!quality.value)fetchQuality()}
 
+async function submitIngest(){
+  const id = route.params.id as string
+  const texts = ingestForm.value.texts.split('\n').map(t=>t.trim()).filter(Boolean)
+  if(!texts.length){msg.warning('请粘贴至少一条数据');return}
+  ingesting.value=true
+  try{const r=await apiClient.post('/data/datasets/'+id+'/ingest',{texts});msg.success(`已接入 ${r.data.count||texts.length} 条数据`);showIngest.value=false;ingestForm.value.texts='';await fetchAll()}catch{msg.error('接入失败')}
+  finally{ingesting.value=false}
+}
+
+function openVerify(item:any){
+  verifyItem.value=item
+  verifyForm.value={label:item.label||'',category:item.category||'',sentiment:item.sentiment||''}
+  showVerify.value=true
+}
+
+async function submitVerify(){
+  if(!verifyItem.value)return
+  verifying.value=true
+  try{
+    await apiClient.patch('/data/annotations/'+verifyItem.value.id,{
+      label:verifyForm.value.label||null,
+      category:verifyForm.value.category||null,
+      sentiment:verifyForm.value.sentiment||null,
+    })
+    msg.success('标注已修正');showVerify.value=false;await fetchAnnotations()
+  }catch{msg.error('保存失败')}
+  finally{verifying.value=false}
+}
+
+async function openCompare(){
+  if(versions.value.length<2){msg.warning('至少需要2个版本才能对比');return}
+  compareFrom.value=versions.value[1].id  // older
+  compareTo.value=versions.value[0].id    // newer
+  const id = route.params.id as string
+  try{
+    const r=await apiClient.get('/data/datasets/'+id+'/versions/compare',{params:{from_v:compareFrom.value,to_v:compareTo.value}})
+    compareResult.value=r.data;showCompare.value=true
+  }catch{msg.error('对比失败')}
+}
+
 onMounted(()=>{fetchAll()})
 </script>
 
@@ -303,6 +421,21 @@ onMounted(()=>{fetchAll()})
 .vi-num{font-size:12px;font-weight:700;color:#0ea5e9;min-width:30px}
 .vi-info{flex:1}.vi-date{font-size:11px;color:#94a3b8}.vi-log{font-size:12px;color:#475569}
 .vi-count{font-size:11px;color:#94a3b8}
+
+/* Verify modal */
+.verify-text{font-size:13px;color:#475569;background:#f8fafc;padding:12px;border-radius:8px;line-height:1.6;max-height:120px;overflow-y:auto}
+
+/* Version compare modal */
+.cmp-header{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px}
+.cmp-v{font-size:16px;font-weight:800;color:#0ea5e9;background:#f0f9ff;padding:6px 14px;border-radius:8px}
+.cmp-arrow{font-size:18px;color:#94a3b8}
+.cmp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.cmp-cell{text-align:center;padding:12px 4px;background:#f8fafc;border-radius:8px}
+.cc-v{font-size:20px;font-weight:800;color:#475569}
+.cc-v.pos{color:#22c55e}.cc-v.neg{color:#ef4444}
+.cc-l{font-size:11px;color:#94a3b8;margin-top:2px}
+.cmp-cats{margin-top:8px}
+.pos{color:#22c55e}.neg{color:#ef4444}
 
 .loading-state{text-align:center;padding:60px;color:#94a3b8;font-size:18px}
 .empty-state{text-align:center;padding:60px;color:#94a3b8}

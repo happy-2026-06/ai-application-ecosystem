@@ -204,7 +204,7 @@ async def ask_question(
 
         # After SSE completes, push to DataHub asynchronously
         try:
-            from shared.datahub_client import push_chat_to_datahub
+            from app.services.datahub_client import push_chat_to_datahub
             sources = []
             # Try to get sources from the session's latest assistant message
             import asyncio as _asyncio

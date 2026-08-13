@@ -15,8 +15,9 @@ class FineTuneTask(Base, UUIDMixin, TimestampMixin):
     dataset_id: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="Reference to dataset")
     method: Mapped[str] = mapped_column(String(20), nullable=False, default="qlora", comment="qlora/lora/full")
     hyperparams: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="{lr, epochs, batch_size, rank}")
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="created", comment="created/running/completed/failed")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="created", comment="created/running/stopped/completed/failed")
     loss_history: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="Training loss per step")
+    lr_history: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="Learning rate per step (warmup + cosine decay schedule)")
     eval_metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="{bleu, rouge_l, human_score}")
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     user = relationship("User")
@@ -35,6 +36,7 @@ class ModelVersion(Base, UUIDMixin):
     size_mb: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_deployed: Mapped[bool] = mapped_column(Boolean, default=False)
     api_endpoint: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    eval_metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment="{bleu, rouge_l, human_score, final_loss} snapshot at training time")
     # Smart Proxy: training data cache for inference-time Few-shot retrieval
     training_samples_cache: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="Samples from training data for Few-shot injection")
     training_domains: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="Business domains this model was trained on")

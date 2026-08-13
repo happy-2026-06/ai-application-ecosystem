@@ -13,11 +13,14 @@ import time
 import asyncio
 import httpx
 import json
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, Task, Execution
 from app.config import settings
+from app.rag.prompts import TASK_DECOMPOSE_PROMPT
+from app.services.action_registry import get_action, format_action_body, get_action_url_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +119,134 @@ async def seed_default_agents(db: AsyncSession) -> None:
     await db.flush()
 
 
+# ── Task auto-decomposition ──────────────────────────────────────────
+# Each capability has keyword lists: when a keyword appears in the task
+# text, the matching agent receives a focused subtask prompt.
+# "general" capability (质量审查) always participates.
+
+CAPABILITY_LABELS: dict[str, str] = {
+    "analysis": "市场分析",
+    "content": "内容创作",
+    "decision": "数据决策",
+    "execution": "执行调度",
+    "general": "质量审查",
+}
+
+CAPABILITY_KEYWORDS: dict[str, list[str]] = {
+    "analysis": ["市场", "分析", "趋势", "竞品", "用户", "画像", "调研", "行业", "行情", "消费者", "品类", "受众"],
+    "content": ["文案", "内容", "种草", "标题", "创作", "脚本", "推文", "公众号", "小红书", "抖音", "营销", "写", "分发", "海报"],
+    "decision": ["决策", "风险", "评估", "预算", "ROI", "定价", "策略", "方案", "选择", "优先级", "数据", "投产", "效果"],
+    "execution": ["执行", "计划", "排期", "流程", "调度", "SOP", "项目", "落地", "发布", "上线", "运营", "大促", "渠道", "投放", "复盘"],
+    "general": ["质量", "审查", "合规", "检查", "审核", "校对", "验收"],
+}
+
+
+def _decompose_by_keywords(task_text: str, agents: list) -> list[dict]:
+    """Fast, no-LLM task decomposition: match capability keywords against
+    the task text. Matching agents get a focused subtask prompt; others keep
+    the original task so they still have full context."""
+    plan = []
+    for a in agents:
+        keywords = CAPABILITY_KEYWORDS.get(a.capability, [])
+        matched = [kw for kw in keywords if kw and kw in task_text]
+        if a.capability == "general" or matched:
+            label = CAPABILITY_LABELS.get(a.capability, a.capability)
+            subtask = f"请从{label}角度处理：{task_text[:300]}"
+        else:
+            subtask = task_text[:300]
+        plan.append({"agent_name": a.name, "capability": a.capability, "subtask": subtask})
+    return plan
+
+
+def _parse_llm_decomposition(llm_text: str, agents: list, keyword_plan: list[dict]) -> list[dict]:
+    """Map LLM decomposition output lines back to agents by name.
+    Agents not mentioned in the LLM output fall back to their keyword subtask."""
+    fallback = {p["agent_name"]: p["subtask"] for p in keyword_plan}
+    parsed: dict[str, str] = {}
+    for line in llm_text.splitlines():
+        line = line.strip().lstrip("-*#0123456789.：: ").strip()
+        if not line:
+            continue
+        for agent in agents:
+            if agent.name in line:
+                parts = line.split(agent.name, 1)
+                remainder = parts[1].lstrip("：: -").strip() if len(parts) > 1 else ""
+                parsed[agent.name] = remainder or fallback.get(agent.name, line)
+                break
+    if not parsed:
+        return []
+    return [
+        {"agent_name": a.name, "capability": a.capability,
+         "subtask": parsed.get(a.name) or fallback.get(a.name, f"请从{a.capability}角度处理任务")}
+        for a in agents
+    ]
+
+
+async def decompose_task(task_text: str, agents: list) -> list[dict]:
+    """Decompose a task into per-agent subtasks.
+
+    Uses the LLM with TASK_DECOMPOSE_PROMPT when available; falls back to
+    fast keyword matching (no LLM dependency) on any failure.
+
+    Returns: [{"agent_name": str, "capability": str, "subtask": str}, ...]
+    """
+    agents = [a for a in agents if a]
+    if not agents:
+        return []
+
+    keyword_plan = _decompose_by_keywords(task_text, agents)
+
+    try:
+        llm = await _get_llm()
+        if llm is None:
+            return keyword_plan
+
+        agent_lines = "\n".join(
+            f"- {a.name}（能力标签: {a.capability}，职责: {a.role}）" for a in agents
+        )
+        prompt = TASK_DECOMPOSE_PROMPT.format(question=task_text[:2000]) + (
+            f"\n\n可用Agent:\n{agent_lines}\n\n"
+            "请严格按以下格式为每个Agent生成一行子任务描述（不要编号，不要额外解释）:\n"
+            "{Agent名称}: {子任务描述}"
+        )
+        resp = await llm.ainvoke(prompt)
+        llm_text = resp.content if hasattr(resp, "content") else str(resp)
+        plan = _parse_llm_decomposition(llm_text, agents, keyword_plan)
+        if plan:
+            logger.info("Task decomposed via LLM into %d subtasks", len(plan))
+            return plan
+    except Exception as e:
+        logger.warning("LLM task decomposition failed (%s); using keyword fallback", e)
+
+    return keyword_plan
+
+
+# ── Agent heartbeat / health ─────────────────────────────────────────
+
+HEARTBEAT_TIMEOUT_MINUTES = 5
+
+
+def touch_agent_heartbeat(agent: Agent) -> None:
+    """Record that an agent was used — last_heartbeat = activity timestamp."""
+    agent.last_heartbeat = datetime.now(timezone.utc)
+
+
+def is_agent_online(agent: Agent, now: datetime | None = None) -> bool:
+    """An agent is online if its last heartbeat is within the timeout window,
+    or if it is marked online and has never sent a heartbeat (fallback)."""
+    now = now or datetime.now(timezone.utc)
+    if agent.last_heartbeat is not None:
+        return _as_utc(now) - _as_utc(agent.last_heartbeat) <= timedelta(minutes=HEARTBEAT_TIMEOUT_MINUTES)
+    return agent.status == "online"
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize a datetime to UTC (SQLite returns naive datetimes)."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 # ── Agent lifecycle ───────────────────────────────────────────────
 
 async def get_online_agents(db: AsyncSession) -> list[Agent]:
@@ -163,9 +294,11 @@ async def _execute_pipeline(
         try:
             agent = await _get_agent(db, exec.agent_id)
             agent_prompt = _get_agent_prompt(agent.name)
+            subtask = exec.input_data or f"任务: {task.title}\n描述: {task.description or ''}"
 
             # This agent receives the previous agent's output as input
-            exec.input_data = previous_output[:3000]
+            # (its own decomposed subtask is preserved for traceability)
+            exec.input_data = f"【子任务】{subtask}\n\n【上一步输出】{previous_output[:2500]}"
 
             # Step 1: Try cross-project action
             action_output = await _try_cross_project_action(db, task, exec)
@@ -181,6 +314,9 @@ async def _execute_pipeline(
 
 ## 你是流水线的第 {i + 1} 步（共 {len(execs)} 步）
 
+## 你的专属子任务（任务自动拆解）
+{subtask}
+
 ## 任务信息
 {previous_output}
 
@@ -190,6 +326,9 @@ async def _execute_pipeline(
                         prompt = f"""{agent_prompt}
 
 ## 你是流水线的第 {i + 1} 步（共 {len(execs)} 步）
+
+## 你的关注点（任务自动拆解）
+{subtask}
 
 ## 上一步Agent的输出
 {previous_output[:2000]}
@@ -245,6 +384,7 @@ async def _execute_parallel(
         try:
             agent = await _get_agent(db, exec.agent_id)
             agent_prompt = _get_agent_prompt(agent.name)
+            subtask = exec.input_data or f"任务: {task.title}\n描述: {task.description or ''}"
 
             action_output = await _try_cross_project_action(db, task, exec)
 
@@ -260,6 +400,9 @@ async def _execute_parallel(
 
 ## 任务详情
 {task.description or '无详细描述'}
+
+## 你的专属子任务（任务自动拆解）
+{subtask}
 
 ## 请从你的专业角度出发，独立完成这个任务。不需要参考其他Agent。"""
                     response = await llm.ainvoke(prompt)
@@ -312,6 +455,7 @@ async def _execute_vote(
         try:
             agent = await _get_agent(db, exec.agent_id)
             agent_prompt = _get_agent_prompt(agent.name)
+            subtask = exec.input_data or f"投票任务: {task.title}"
 
             llm = await _get_llm()
             if llm:
@@ -322,6 +466,9 @@ async def _execute_vote(
 
 ## 任务详述
 {task.description or '无'}
+
+## 你的关注点（任务自动拆解）
+{subtask}
 
 ## 请独立投票
 1. 先给出你的答案（方案A/方案B/自定义方案）
@@ -435,6 +582,7 @@ async def _execute_debate(
         exec.status = "running"
         await db.flush()
         start = time.time()
+        subtask = exec.input_data or ""
 
         try:
             if llm:
@@ -445,6 +593,9 @@ async def _execute_debate(
 你的角色: **{role}**
 辩论主题: {topic}
 背景: {description}
+
+## 你的专业关注点（任务自动拆解）
+{subtask}
 
 ## 之前的辩论记录
 {context[:2000]}
@@ -518,81 +669,116 @@ async def _execute_debate(
     return {"task_id": str(task.id), "mode": "debate", "results": results, "aggregated": full_transcript[:8000]}
 
 
-# ── Cross-Project Actions ──────────────────────────────────────────
+# ── Cross-Project Actions (action_registry) ──────────────────────────
+
+# Task-intent keywords → registered action name (see app.services.action_registry)
+ACTION_INTENTS: list[tuple[tuple[str, ...], str]] = [
+    (("文案", "种草", "内容", "生成", "写"), "灵笔-生成文案"),
+    (("视频", "脚本", "分镜", "短视频"), "视界-生成脚本"),
+    (("图库", "素材", "图片", "搜索素材"), "图库-搜索素材"),
+    (("客服", "faq", "知识库", "咨询"), "客服-搜索知识库"),
+    (("训练", "话术", "培训"), "话术-创建训练"),
+    (("数据", "数据集", "查询数据"), "数据-查询数据集"),
+]
+
+
+def _action_params(action_name: str, title: str) -> dict:
+    """Build the parameter values for an action's body template."""
+    if action_name == "灵笔-生成文案":
+        return {"prompt": f"请生成关于「{title}」的营销文案"}
+    if action_name == "视界-生成脚本":
+        return {"prompt": f"请生成关于「{title}」的短视频分镜脚本"}
+    if action_name == "图库-搜索素材":
+        return {"query": title}
+    if action_name == "客服-搜索知识库":
+        return {"query": title}
+    if action_name == "话术-创建训练":
+        return {"context": title}
+    return {}
+
+
+async def _call_action(action_name: str, urls: list[str], method: str, body: dict) -> str:
+    """Call a registered action across its candidate URLs — Docker service
+    name first, localhost fallback second (local dev). Returns a
+    human-readable result line."""
+    headers = {"X-Internal-Call": "true", "Content-Type": "application/json"}
+    last_error = "无可用地址"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for url in urls:
+            try:
+                if method == "GET":
+                    resp = await client.get(url, headers=headers, params=body or None, timeout=30.0)
+                else:
+                    resp = await client.post(url, headers=headers, json=body or {}, timeout=30.0)
+
+                if resp.status_code in (200, 201):
+                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"text": resp.text[:2000]}
+                    logger.info("Cross-project action %s succeeded via %s", action_name, url)
+                    return f"[{action_name}] ✅ 成功调用 ({url})\n返回: {json.dumps(data, ensure_ascii=False)[:1000]}"
+                last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+            except Exception as e:
+                last_error = f"调用失败: {str(e)[:200]}"
+                logger.debug("Cross-project action %s failed via %s: %s", action_name, url, e)
+    return f"[{action_name}] ❌ {last_error}"
+
 
 async def _try_cross_project_action(
     db: AsyncSession,
     task: Task,
     execution: Execution,
 ) -> str | None:
-    """Try to execute a cross-project action if the task description matches."""
+    """Try to execute cross-project actions matched from the action registry."""
     task_text = f"{task.title} {task.description or ''}".lower()
-    actions_to_try = []
 
-    # Match task intent to cross-project actions
-    if any(kw in task_text for kw in ["文案", "种草", "内容", "生成", "写"]):
-        actions_to_try.append(("灵笔-生成文案", f"http://p2-backend:8000/api/chat/ask?session_id=orchestrator", "POST",
-                               {"message": f"请生成关于「{task.title}」的营销文案", "platform": "xiaohongshu"}))
+    action_names: list[str] = []
+    for keywords, action_name in ACTION_INTENTS:
+        if action_name not in action_names and any(kw in task_text for kw in keywords):
+            action_names.append(action_name)
 
-    if any(kw in task_text for kw in ["视频", "脚本", "分镜", "短视频"]):
-        actions_to_try.append(("视界-生成脚本", f"http://p3-backend:8000/api/chat/ask?session_id=orchestrator", "POST",
-                               {"message": f"请生成关于「{task.title}」的短视频分镜脚本", "style": "带货"}))
+    if not action_names:
+        return None
 
-    if any(kw in task_text for kw in ["图库", "素材", "图片", "搜索素材"]):
-        actions_to_try.append(("图库-搜索素材", f"http://p4-backend:8000/api/assets/public/search?q={task.title}", "GET", None))
-
-    if any(kw in task_text for kw in ["客服", "FAQ", "知识库", "咨询"]):
-        actions_to_try.append(("客服-搜索知识库", f"http://p1-backend:8000/api/kb/search", "POST",
-                               {"query": task.title, "top_k": 5}))
-
-    if any(kw in task_text for kw in ["训练", "话术", "培训"]):
-        actions_to_try.append(("话术-创建训练", f"http://p5-backend:8000/api/training/sessions", "POST",
-                               {"customer_type": "picky", "product_context": task.title}))
-
-    if any(kw in task_text for kw in ["数据", "数据集", "查询数据"]):
-        actions_to_try.append(("数据-查询数据集", f"http://p6-backend:8000/api/data/datasets", "GET", None))
-
-    # Execute matched actions
     results = []
-    for action_name, url, method, body in actions_to_try:
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                headers = {"X-Internal-Call": "true", "Content-Type": "application/json"}
-                if method == "GET":
-                    resp = await client.get(url, headers=headers, timeout=30.0)
-                else:
-                    resp = await client.post(url, headers=headers, json=body or {}, timeout=30.0)
+    for action_name in action_names:
+        action = get_action(action_name)
+        if not action:
+            logger.warning("Action %s not found in registry", action_name)
+            continue
+        body = format_action_body(action_name, **_action_params(action_name, task.title))
+        urls = get_action_url_candidates(action_name)
+        results.append(await _call_action(action_name, urls, action["method"], body))
 
-                if resp.status_code in (200, 201):
-                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"text": resp.text[:2000]}
-                    results.append(f"[{action_name}] ✅ 成功调用\n返回: {json.dumps(data, ensure_ascii=False)[:1000]}")
-                    logger.info("Cross-project action %s succeeded", action_name)
-                else:
-                    results.append(f"[{action_name}] ⚠️ HTTP {resp.status_code}: {resp.text[:200]}")
-        except Exception as e:
-            results.append(f"[{action_name}] ❌ 调用失败: {str(e)[:200]}")
-            logger.debug("Cross-project action %s failed: %s", action_name, e)
-
-    if results:
-        return f"## 🌐 跨系统联动执行结果\n\n" + "\n\n".join(results)
-
-    return None
+    return f"## 🌐 跨系统联动执行结果\n\n" + "\n\n".join(results)
 
 
 # ── Private Helpers ────────────────────────────────────────────────
 
 async def _create_executions(db: AsyncSession, task: Task, agent_ids: list[str]) -> list:
-    """Create Execution records for a task. Returns the list of executions."""
-    execs = []
+    """Create Execution records for a task, one per online agent.
+
+    Each execution receives its own decomposed subtask (task auto-decomposition)
+    instead of the shared task, and the agent's heartbeat is refreshed.
+    """
+    task_text = f"{task.title} {task.description or ''}"
+    resolved: list[tuple[int, Agent]] = []
     for i, aid in enumerate(agent_ids):
         result = await db.execute(select(Agent).where(Agent.id == aid))
         agent = result.scalar_one_or_none()
         if not agent or agent.status != "online":
             continue
+        resolved.append((i, agent))
+
+    # Task auto-decomposition: each agent gets a focused subtask prompt
+    plan = await decompose_task(task_text, [a for _, a in resolved])
+    subtasks = {p["agent_name"]: p["subtask"] for p in plan}
+
+    execs = []
+    for i, agent in resolved:
+        touch_agent_heartbeat(agent)  # Agent is being used → heartbeat update
         exec = Execution(
-            task_id=task.id, agent_id=aid,
+            task_id=task.id, agent_id=agent.id,
             step_order=i, status="queued",
-            input_data=f"任务: {task.title}\n描述: {task.description or ''}",
+            input_data=subtasks.get(agent.name) or f"任务: {task.title}\n描述: {task.description or ''}",
         )
         db.add(exec)
         execs.append(exec)

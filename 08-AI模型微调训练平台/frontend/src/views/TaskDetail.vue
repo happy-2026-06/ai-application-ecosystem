@@ -18,28 +18,51 @@
         </div>
         <div class="dh-right">
           <n-tag :type="statusTagType(task.status)" size="large">{{ statusLabel(task.status) }}</n-tag>
+          <n-button v-if="task.status==='running'" size="small" type="warning" @click="stopTask" :loading="stopping">⏹ 停止训练</n-button>
           <n-button size="small" @click="fetchAll">🔄 刷新</n-button>
         </div>
       </div>
 
-      <!-- Loss Chart -->
-      <div class="section-card" v-if="task.loss_history">
-        <h3>📉 训练 Loss 曲线</h3>
-        <div class="loss-chart-container">
-          <div class="loss-chart">
-            <div v-for="(l,i) in task.loss_history" :key="i" class="loss-bar"
-              :style="{height:Math.max(1,Math.min(120,(4-l)*30))+'px',opacity:0.5+(i/task.loss_history.length)*0.5}"
-              :title="'Step '+i+': '+l" />
+      <!-- Loss + LR Charts -->
+      <div class="charts-row">
+        <div class="section-card" v-if="task.loss_history">
+          <h3>📉 训练 Loss 曲线</h3>
+          <div class="loss-chart-container">
+            <div class="loss-chart">
+              <div v-for="(l,i) in task.loss_history" :key="i" class="loss-bar"
+                :style="{height:Math.max(1,Math.min(120,(4-l)*30))+'px',opacity:0.5+(i/task.loss_history.length)*0.5}"
+                :title="'Step '+i+': '+l" />
+            </div>
+            <div class="loss-axis">
+              <span>Step 0</span>
+              <span>{{ task.loss_history.length }} steps</span>
+            </div>
           </div>
-          <div class="loss-axis">
-            <span>Step 0</span>
-            <span>{{ task.loss_history.length }} steps</span>
+          <div class="loss-stats">
+            <div class="ls-item"><div class="ls-v">{{ task.loss_history[0] }}</div><div class="ls-l">初始Loss</div></div>
+            <div class="ls-item"><div class="ls-v green">{{ task.loss_history[task.loss_history.length-1] }}</div><div class="ls-l">最终Loss</div></div>
+            <div class="ls-item"><div class="ls-v amber">{{ (task.loss_history[0] - task.loss_history[task.loss_history.length-1]).toFixed(2) }}</div><div class="ls-l">Loss下降</div></div>
           </div>
         </div>
-        <div class="loss-stats">
-          <div class="ls-item"><div class="ls-v">{{ task.loss_history[0] }}</div><div class="ls-l">初始Loss</div></div>
-          <div class="ls-item"><div class="ls-v green">{{ task.loss_history[task.loss_history.length-1] }}</div><div class="ls-l">最终Loss</div></div>
-          <div class="ls-item"><div class="ls-v amber">{{ (task.loss_history[0] - task.loss_history[task.loss_history.length-1]).toFixed(2) }}</div><div class="ls-l">Loss下降</div></div>
+
+        <div class="section-card" v-if="task.lr_history">
+          <h3>📈 学习率曲线 <span class="chart-sub">Warmup + Cosine Decay</span></h3>
+          <div class="loss-chart-container">
+            <div class="loss-chart">
+              <div v-for="(v,i) in task.lr_history" :key="i" class="lr-bar"
+                :style="{height:Math.max(1,Math.min(120,(v/maxLr)*120))+'px'}"
+                :title="'Step '+i+': '+v" />
+            </div>
+            <div class="loss-axis">
+              <span>Step 0</span>
+              <span>{{ task.lr_history.length }} steps</span>
+            </div>
+          </div>
+          <div class="loss-stats">
+            <div class="ls-item"><div class="ls-v">{{ fmtLr(maxLr) }}</div><div class="ls-l">初始学习率</div></div>
+            <div class="ls-item"><div class="ls-v green">{{ fmtLr(task.lr_history[task.lr_history.length-1]) }}</div><div class="ls-l">最终学习率</div></div>
+            <div class="ls-item"><div class="ls-v purple">{{ decayPct }}%</div><div class="ls-l">余弦衰减幅度</div></div>
+          </div>
         </div>
       </div>
 
@@ -90,11 +113,13 @@
           <div style="display:flex;gap:8px">
             <n-button size="small" @click="fetchModels">🔄 刷新</n-button>
             <n-button size="small" type="primary" @click="showFromHub=true" secondary>📥 从数据中枢导入</n-button>
+            <n-button size="small" @click="openCompare" :disabled="compareSelected.length<2">🔍 对比 ({{compareSelected.length}})</n-button>
           </div>
         </div>
         <div v-if="models.length" class="models-list">
           <div v-for="m in models" :key="m.id" class="model-card">
             <div class="md-left">
+              <n-checkbox :checked="compareSelected.includes(m.id)" @update:checked="toggleCompare(m.id)" />
               <span class="md-ver">v{{ m.version_number }}</span>
               <div>
                 <div class="md-name">{{ m.model_name }}</div>
@@ -151,6 +176,26 @@
         </template>
       </n-modal>
 
+      <!-- Model Comparison Modal -->
+      <n-modal v-model:show="showCompare" preset="card" title="模型版本对比" style="width:880px">
+        <div v-if="compareModels.length" class="compare-grid">
+          <div v-for="m in compareModels" :key="m.id" class="cmp-col">
+            <div class="cmp-head">
+              <div class="cmp-name">{{ m.model_name }}</div>
+              <n-tag :type="m.is_deployed?'success':'default'" size="small">{{ m.is_deployed?'已部署':'未部署' }}</n-tag>
+            </div>
+            <div class="cmp-meta">v{{ m.version_number }} · {{ m.size_mb }}MB · {{ new Date(m.created_at).toLocaleDateString() }}</div>
+            <div class="cmp-rows">
+              <div class="cmp-row"><span>Final Loss</span><b>{{ m.eval_metrics?.final_loss ?? '—' }}</b></div>
+              <div class="cmp-row"><span>BLEU</span><b>{{ m.eval_metrics?.bleu ?? '—' }}</b></div>
+              <div class="cmp-row"><span>ROUGE-L</span><b>{{ m.eval_metrics?.rouge_l ?? '—' }}</b></div>
+              <div class="cmp-row"><span>人工评分</span><b>{{ m.eval_metrics?.human_score ?? '—' }}</b></div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="no-data">请先勾选至少 2 个模型版本进行对比</div>
+      </n-modal>
+
       <!-- Import from DataHub Modal -->
       <n-modal v-model:show="showFromHub" title="从数据中枢导入数据集" preset="card" style="width:700px">
         <div v-if="hubLoading" style="text-align:center;padding:40px">⏳ 加载数据中枢...</div>
@@ -175,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import apiClient from '../api/client'
@@ -184,7 +229,16 @@ const route = useRoute(); const msg = useMessage()
 const task = ref<any>(null)
 const models = ref<any[]>([])
 const abPrompt = ref(''); const abLoading = ref(false); const abResults = ref<any[]>([])
-const deployingId = ref('')
+const deployingId = ref(''); const stopping = ref(false)
+
+// Model comparison
+const compareSelected = ref<string[]>([]); const showCompare = ref(false)
+const compareModels = computed(()=> models.value.filter(m=>compareSelected.value.includes(m.id)))
+
+// LR curve helpers
+const maxLr = computed(()=>{ const h=task.value?.lr_history; return h&&h.length? Math.max(...h) : 1 })
+const decayPct = computed(()=>{ const h=task.value?.lr_history; if(!h||!h.length) return '0'; const mx=Math.max(...h); return (((mx-h[h.length-1])/mx)*100).toFixed(0) })
+const fmtLr=(v:number)=> v>=0.01 ? v.toFixed(4) : v.toExponential(2)
 
 // Inference
 const showInference = ref(false); const infResult = ref<any>(null)
@@ -193,8 +247,8 @@ const showInference = ref(false); const infResult = ref<any>(null)
 const showFromHub = ref(false); const hubLoading = ref(false)
 const hubDatasets = ref<any[]>([]); const importingId = ref('')
 
-const statusLabel=(s:string)=>({created:'已创建',running:'训练中',completed:'已完成',failed:'失败'}[s]||s)
-const statusTagType=(s:string)=>({created:'default',running:'info',completed:'success',failed:'error'}[s]||'default') as any
+const statusLabel=(s:string)=>({created:'已创建',running:'训练中',stopped:'已停止',completed:'已完成',failed:'失败'}[s]||s)
+const statusTagType=(s:string)=>({created:'default',running:'info',stopped:'warning',completed:'success',failed:'error'}[s]||'default') as any
 
 async function fetchAll(){
   await Promise.all([fetchTask(),fetchModels()])
@@ -208,6 +262,27 @@ async function fetchTask(){
 async function fetchModels(){
   const id = route.params.id as string; if(!id) return
   try{const r=await apiClient.get('/finetune/tasks/'+id+'/models');models.value=r.data}catch{}
+}
+
+async function stopTask(){
+  if(!task.value) return; stopping.value=true
+  try{
+    const r=await apiClient.post('/finetune/tasks/'+task.value.id+'/stop')
+    task.value=r.data; msg.success('任务已停止')
+  }catch{msg.error('停止失败')}
+  finally{stopping.value=false}
+}
+
+function toggleCompare(id:string){
+  const i=compareSelected.value.indexOf(id)
+  if(i>=0){compareSelected.value.splice(i,1);return}
+  if(compareSelected.value.length>=3){msg.warning('最多选择 3 个模型版本进行对比');return}
+  compareSelected.value.push(id)
+}
+
+function openCompare(){
+  if(compareSelected.value.length<2){msg.warning('请先勾选至少 2 个模型版本');return}
+  showCompare.value=true
 }
 
 async function deployModel(modelId:string){
@@ -274,14 +349,21 @@ onMounted(async()=>{
 .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .section-header h3{margin:0}
 
+/* Charts row (Loss + LR) */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.charts-row .section-card{margin-bottom:20px}
+@media (max-width:900px){.charts-row{grid-template-columns:1fr}}
+.chart-sub{font-size:12px;color:#94a3b8;font-weight:500}
+
 /* Loss chart */
 .loss-chart-container{margin-bottom:16px}
 .loss-chart{display:flex;align-items:flex-end;gap:1px;height:120px;background:#f8fafc;border-radius:12px;padding:12px 16px}
 .loss-bar{width:4px;background:linear-gradient(180deg,#f59e0b,#d97706);border-radius:2px;min-height:1px;flex-shrink:0;transition:opacity .3s}
+.lr-bar{width:4px;background:linear-gradient(180deg,#8b5cf6,#6d28d9);border-radius:2px;min-height:1px;flex-shrink:0}
 .loss-axis{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:6px}
 .loss-stats{display:flex;gap:12px}
 .ls-item{flex:1;text-align:center;padding:12px;background:#f8fafc;border-radius:10px}
-.ls-v{font-size:22px;font-weight:800;color:#f59e0b}.ls-v.green{color:#22c55e}.ls-v.amber{color:#f59e0b}
+.ls-v{font-size:22px;font-weight:800;color:#f59e0b}.ls-v.green{color:#22c55e}.ls-v.amber{color:#f59e0b}.ls-v.purple{color:#8b5cf6}
 .ls-l{font-size:11px;color:#94a3b8;margin-top:2px}
 
 /* Metrics */
@@ -329,13 +411,25 @@ onMounted(async()=>{
 /* Inference */
 .inf-response{font-size:14px;color:#334155;line-height:1.7;white-space:pre-wrap;padding:16px;background:#fffbeb;border-radius:12px;max-height:400px;overflow-y:auto}
 
+/* Model comparison */
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.cmp-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px}
+.cmp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.cmp-name{font-size:14px;font-weight:700;color:#1e293b;word-break:break-all}
+.cmp-meta{font-size:11px;color:#94a3b8;margin-bottom:12px}
+.cmp-rows{display:flex;flex-direction:column;gap:6px}
+.cmp-row{display:flex;justify-content:space-between;font-size:13px;color:#64748b;padding:6px 0;border-bottom:1px dashed #e2e8f0}
+.cmp-row b{color:#1e293b}
+
 .loading-state{text-align:center;padding:80px;color:#94a3b8;font-size:18px}
 .no-data{text-align:center;color:#94a3b8;font-size:13px;padding:16px}
 
 [data-theme="dark"] .dh-left h1{color:#f1f5f9}
 [data-theme="dark"] .section-card{background:#1e1e28;border-color:#2d2d3d}
 [data-theme="dark"] .section-card h3{color:#e2e8f0}
-[data-theme="dark"] .loss-chart,.loss-stats .ls-item,.metric-card,.models-list .model-card,.ab-card,.hub-card{background:#252530;border-color:#2d2d3d}
+[data-theme="dark"] .loss-chart,.loss-stats .ls-item,.metric-card,.models-list .model-card,.ab-card,.hub-card,.cmp-col{background:#252530;border-color:#2d2d3d}
 [data-theme="dark"] .md-name{color:#e2e8f0}
+[data-theme="dark"] .cmp-name,[data-theme="dark"] .cmp-row b{color:#e2e8f0}
+[data-theme="dark"] .cmp-row{border-bottom-color:#3a3a4d}
 [data-theme="dark"] .inf-response{background:#2d2508}
 </style>

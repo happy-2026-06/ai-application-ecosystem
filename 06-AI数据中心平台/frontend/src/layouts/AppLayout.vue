@@ -47,12 +47,16 @@ const currentRoute = computed(() => {
 const navItems = computed(() => {
   const items: { key: string; icon: string; label: string }[] = [
     { key: 'data', icon: '📊', label: '数据控制台' },
+    { key: 'datasets', icon: '📚', label: '数据集' },
+    { key: 'quality', icon: '📈', label: '质量报告' },
   ]
   if (authStore.isAdmin) items.push({ key: 'admin', icon: '⚙️', label: '管理' })
   return items
 })
 function go(k: string) {
   if (k === 'data') router.push('/data')
+  else if (k === 'datasets') router.push('/data/datasets')
+  else if (k === 'quality') router.push('/data/quality')
   else if (k === 'admin') router.push('/admin/dashboard')
   else if (k === 'settings') router.push('/settings')
 }

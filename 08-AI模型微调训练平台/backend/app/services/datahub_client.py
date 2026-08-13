@@ -87,7 +87,7 @@ def _get_admin_auth_header() -> dict:
     Uses a pre-login approach: try to get a token via login endpoint.
     Falls back to no auth (data hub accepts internal calls without auth).
     """
-    return {"X-Internal-Call": "true"}
+    return {"X-Internal-Call": "ai-ecosystem-internal-2026"}
 
 
 async def push_generated_content_to_datahub(

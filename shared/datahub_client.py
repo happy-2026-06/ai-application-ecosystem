@@ -82,12 +82,14 @@ async def _push(
 
 
 def _get_admin_auth_header() -> dict:
-    """Get admin auth header for data hub API calls.
+    """Get auth header for data hub API calls.
 
-    Uses a pre-login approach: try to get a token via login endpoint.
-    Falls back to no auth (data hub accepts internal calls without auth).
+    Cross-project internal calls authenticate via the X-Internal-Call header
+    carrying the shared secret (configured as INTERNAL_CALL_SECRET in ⑥'s
+    config.py). The data hub accepts this instead of a JWT for machine-to-
+    machine pushes from other projects in the ecosystem.
     """
-    return {"X-Internal-Call": "true"}
+    return {"X-Internal-Call": "ai-ecosystem-internal-2026"}
 
 
 async def push_generated_content_to_datahub(

@@ -34,7 +34,7 @@ class DataVersionResponse(BaseModel):
     item_count: int
     change_log: str | None = None
     quality_score: float | None = None
-    metadata: dict | None = None
+    snapshot_meta: dict | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

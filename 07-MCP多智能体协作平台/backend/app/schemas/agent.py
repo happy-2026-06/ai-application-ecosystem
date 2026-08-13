@@ -16,6 +16,7 @@ class AgentResponse(BaseModel):
     id: str; name: str; role: str; capability: str; status: str
     system_prompt: str | None = None
     last_heartbeat: datetime | None = None
+    online: bool = False
     created_at: datetime; updated_at: datetime
     model_config = {"from_attributes": True}
 

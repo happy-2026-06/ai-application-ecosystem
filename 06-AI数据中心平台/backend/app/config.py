@@ -89,6 +89,12 @@ class Settings(BaseSettings):
         default=["http://localhost:3006", "http://localhost:80", "http://localhost"],
     )
 
+    # ── Cross-Project Internal Calls ─────────────────────────────────
+    # 共享密钥：其他项目(①⑤⑧等)通过 X-Internal-Call 头携带此值调用
+    # /api/data/external/ingest 等内部接口，代替 JWT 认证。
+    # 生产环境请通过环境变量覆盖。
+    INTERNAL_CALL_SECRET: str = "ai-ecosystem-internal-2026"
+
     # ── Pre-seeded admin account ─────────────────────────────────────
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = Field(

@@ -12,7 +12,9 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: '/data' },
       { path: 'data', name: 'DataConsole', component: () => import('../views/DataConsole.vue') },
+      { path: 'data/datasets', name: 'DataSetList', component: () => import('../views/DataSetList.vue') },
       { path: 'data/datasets/:id', name: 'DataSetDetail', component: () => import('../views/DataSetDetail.vue') },
+      { path: 'data/quality', name: 'QualityReport', component: () => import('../views/QualityReport.vue') },
       { path: 'settings', name: 'Settings', component: () => import('../views/SettingsView.vue') },
       { path: 'admin/users', name: 'AdminUsers', component: () => import('../views/AdminUsersView.vue'), meta: { requiresAdmin: true } },
       { path: 'admin/dashboard', name: 'AdminDashboard', component: () => import('../views/AdminDashboardView.vue'), meta: { requiresAdmin: true } },

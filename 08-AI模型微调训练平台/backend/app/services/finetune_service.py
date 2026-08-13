@@ -12,7 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 async def simulate_training(db: AsyncSession, task: FineTuneTask) -> FineTuneTask:
-    """Simulate a fine-tuning run with realistic loss curve and metrics."""
+    """Simulate a fine-tuning run with realistic loss curve and metrics.
+
+    NOTE: This runs synchronously inside the create-task HTTP request, so a
+    concurrent "stop" call cannot interrupt it mid-training — the POST
+    /tasks/{task_id}/stop endpoint only marks tasks stuck in the "running"
+    state (e.g. after a server crash mid-training) as "stopped".
+    """
     task.status = "running"
     await db.flush()
 
@@ -20,15 +26,28 @@ async def simulate_training(db: AsyncSession, task: FineTuneTask) -> FineTuneTas
     lr = task.hyperparams.get("learning_rate", 2e-4) if task.hyperparams else 2e-4
     total_steps = epochs * 50  # simulate 50 steps per epoch
 
+    # Learning rate schedule: linear warmup (10% of steps) + cosine decay to 0
+    warmup_steps = max(1, total_steps // 10)
+
     loss_history = []
+    lr_history = []
     loss = 3.5
     for step in range(total_steps):
         loss = loss * 0.96 + random.uniform(-0.1, 0.1)
         loss_history.append(round(max(0.3, loss), 4))
+
+        if step < warmup_steps:
+            lr_ratio = (step + 1) / warmup_steps          # linear warmup: 0 → 1
+        else:
+            progress = (step - warmup_steps) / max(1, total_steps - warmup_steps - 1)
+            lr_ratio = 0.5 * (1 + math.cos(math.pi * progress))  # cosine decay: 1 → 0
+        lr_history.append(round(lr * lr_ratio, 8))
+
         if step % 30 == 0:
             await db.flush()
 
     task.loss_history = loss_history
+    task.lr_history = lr_history
     task.eval_metrics = {
         "bleu": round(random.uniform(0.45, 0.72), 3),
         "rouge_l": round(random.uniform(0.38, 0.65), 3),
@@ -51,6 +70,9 @@ async def simulate_training(db: AsyncSession, task: FineTuneTask) -> FineTuneTas
         size_mb=round(random.uniform(50, 500), 1),
         training_samples_cache=training_cache,
         training_domains=training_domains,
+        # Snapshot metrics on the version so versions remain comparable
+        # even after the task runs again and overwrites task.eval_metrics.
+        eval_metrics={**task.eval_metrics, "final_loss": loss_history[-1]},
     )
     db.add(mv)
     await db.flush()

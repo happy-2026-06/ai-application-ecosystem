@@ -84,6 +84,35 @@ def get_all_actions() -> list[dict]:
     ]
 
 
+# Dev-mode fallback: Docker service name → localhost host:port.
+# Ports match docker-compose.yml host mappings (all backends use :8000
+# inside the Docker network). Used when running locally without Docker —
+# callers try the Docker service URL first, then the localhost fallback.
+LOCALHOST_FALLBACKS: dict[str, str] = {
+    "p1-backend": "localhost:8101",
+    "p2-backend": "localhost:8202",
+    "p3-backend": "localhost:8000",
+    "p4-backend": "localhost:8400",
+    "p5-backend": "localhost:8505",
+    "p6-backend": "localhost:8606",
+    "p8-backend": "localhost:8808",
+}
+
+
+def get_action_url_candidates(name: str) -> list[str]:
+    """Candidate URLs for an action: the Docker service URL first, followed
+    by localhost fallback URLs for local development (no Docker network)."""
+    action = get_action(name)
+    if not action:
+        return []
+    url = action["url"]
+    candidates = [url]
+    for host, local in LOCALHOST_FALLBACKS.items():
+        if f"{host}:8000" in url:
+            candidates.append(url.replace(f"{host}:8000", local))
+    return candidates
+
+
 def format_action_body(action_name: str, **params) -> dict:
     """Format an action's request body with the given parameters."""
     action = get_action(action_name)

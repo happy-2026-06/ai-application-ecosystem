@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.models.user import User
+from app.models.message import Message
 from app.models.finetune import FineTuneTask, ModelVersion, ABTest
 from app.core.auth import get_current_user
 from app.schemas.finetune import (
@@ -49,6 +50,82 @@ async def get_task(task_id: str,
     t = result.scalar_one_or_none()
     if not t: raise HTTPException(status_code=404, detail="任务不存在")
     return t
+
+
+@router.post("/tasks/{task_id}/stop", response_model=FineTuneResponse)
+async def stop_task(task_id: str,
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Stop a training task.
+
+    NOTE on the `stop_requested` semantics: simulate_training runs
+    synchronously inside the create-task request (no background worker), so a
+    live run cannot actually be interrupted mid-training by this endpoint.
+    Its main purpose is recovery — marking tasks that are stuck in the
+    "running" state (e.g. left behind after a server crash mid-training) as
+    "stopped", so the UI and dashboard reflect reality. It is idempotent:
+    stopping an already-stopped task returns it unchanged.
+    """
+    result = await db.execute(select(FineTuneTask).where(FineTuneTask.id == task_id))
+    t = result.scalar_one_or_none()
+    if not t: raise HTTPException(status_code=404, detail="任务不存在")
+    if t.status == "running":
+        t.status = "stopped"
+        await db.flush()
+        await db.refresh(t)
+        logger.info("Task %s stopped by user %s", task_id, current_user.id)
+        return t
+    if t.status == "stopped":
+        return t
+    raise HTTPException(status_code=400, detail=f"任务当前状态为「{t.status}」，无法停止")
+
+
+# ── RLHF: Preference Data from Chat Feedback ─────────────────────
+
+@router.get("/rlhf/preference-data")
+async def get_rlhf_preference_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export chat feedback as an RLHF preference dataset.
+
+    Feedback is collected through the chat module (POST /api/chat/feedback)
+    and stored on Message.feedback ('positive' | 'negative'). This endpoint
+    aggregates every rated message into a preference dataset that can feed
+    reward-model training / DPO-style preference optimization, with
+    positive/negative counts for a quick sanity check.
+    """
+    result = await db.execute(
+        select(Message)
+        .where(Message.feedback.isnot(None))
+        .order_by(Message.created_at.asc())
+    )
+    messages = result.scalars().all()
+
+    preferences = []
+    positive = 0
+    negative = 0
+    for m in messages:
+        is_positive = m.feedback == "positive"
+        if is_positive:
+            positive += 1
+        else:
+            negative += 1
+        preferences.append({
+            "message_id": str(m.id),
+            "session_id": m.session_id,
+            "role": m.role,
+            "input": m.content,
+            "preferred": "好评" if is_positive else "差评",
+            "feedback": m.feedback,
+            "timestamp": m.created_at.isoformat() if m.created_at else None,
+        })
+
+    return {
+        "total": len(preferences),
+        "positive": positive,
+        "negative": negative,
+        "preferences": preferences,
+    }
 
 
 # ── Model Versions ───────────────────────────────────────────────
@@ -141,19 +218,26 @@ async def create_task_from_dataset(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a finetune task pulling data from 数据中枢(⑥)."""
-    # 1. Fetch dataset from DataHub
+    # 1. Fetch dataset from DataHub (Docker service name first, localhost fallback)
     data_items = []
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"http://p6-backend:8000/api/data/datasets/{dataset_id}/export-for-finetune",
-                headers={"X-Internal-Call": "true", "Authorization": f"Bearer {_get_internal_token()}"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                data_items = data.get("samples", [])
-    except Exception:
-        pass  # Fall back to empty dataset
+    import asyncio
+    urls = [
+        f"http://p6-backend:8000/api/data/datasets/{dataset_id}/export-for-finetune",
+        f"http://localhost:8606/api/data/datasets/{dataset_id}/export-for-finetune",
+    ]
+    for url in urls:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    url,
+                    headers={"X-Internal-Call": "ai-ecosystem-internal-2026"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    data_items = data.get("samples", [])
+                    break
+        except Exception:
+            continue  # Try next URL; fall back to empty dataset
 
     # 2. Create the task with dataset reference
     task = FineTuneTask(

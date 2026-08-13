@@ -5,12 +5,13 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Body, Request, Form
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, cast, String
+from sqlalchemy import select, func, cast, String, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db, AsyncSessionLocal
@@ -378,6 +379,99 @@ async def import_asset_from_url(
     return _asset_to_response(asset)
 
 
+# ── Search by Image (以图搜图) ───────────────────────────────────────
+
+@router.post("/search-by-image")
+async def search_assets_by_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """以图搜图: generate an AI description of the uploaded image, then search similar assets.
+
+    Vision models (CLIP/BLIP) are not integrated yet, so the description is inferred
+    from the image's metadata (filename/type/size) by the LLM — same approach as AI
+    tagging. Falls back to filename-keyword search when the LLM is unavailable.
+    """
+    filename = os.path.basename(file.filename or "search_image")
+    ext = os.path.splitext(filename)[1].lower()
+    content_type = (file.content_type or "").lower()
+    image_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"}
+    if not content_type.startswith("image/") and ext not in image_exts:
+        raise HTTPException(status_code=400, detail="请上传图片文件（jpg/png/webp 等）")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="文件为空")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="搜索图片不能超过 10MB")
+
+    name_lower = filename.lower()
+    description = ""
+    keywords: list[str] = []
+    fallback = False
+    note: str | None = None
+
+    # 1) Generate AI description + search keywords from the image metadata
+    try:
+        from app.rag.chain import get_llm
+        llm = get_llm()
+        search_prompt = (
+            "You are a DAM (Digital Asset Management) search assistant. "
+            "A user uploaded an image for 'search by image'. "
+            "The vision model is not available, so you only know the file's metadata. "
+            "Based on the filename, infer what the image likely contains.\n\n"
+            f"Filename: {filename}\n"
+            f"File type: {content_type or ext}\n"
+            f"File size: {len(content) / 1024:.1f} KB\n\n"
+            "Output ONLY JSON (no markdown):\n"
+            '{"description": "a concise description of the image in Chinese", '
+            '"keywords": ["k1", "k2", "k3"]}\n\n'
+            "Requirements:\n"
+            "- description: one sentence in Chinese describing the likely content\n"
+            "- keywords: 4-8 search keywords covering subject, scene, style, color tone "
+            "(mix of Chinese and English, lowercase)\n"
+        )
+        from langchain_core.messages import HumanMessage
+        response = llm.invoke([HumanMessage(content=search_prompt)])
+        resp_content = response.content if hasattr(response, 'content') else str(response)
+
+        resp_content = resp_content.strip()
+        if resp_content.startswith("```"):
+            resp_content = resp_content.split("\n", 1)[1].rsplit("\n", 1)[0]
+        if resp_content.startswith("```json"):
+            resp_content = resp_content[7:]
+        parsed = json.loads(resp_content)
+        description = str(parsed.get("description", "")).strip()
+        keywords = [str(k).strip() for k in parsed.get("keywords", []) if str(k).strip()]
+    except Exception as e:
+        logger.warning("LLM unavailable for image search, using filename fallback: %s", e)
+        fallback = True
+        note = "AI 未连接，已按文件名关键词进行搜索"
+
+    if not keywords:
+        fallback = True
+        keywords = _keywords_from_filename(name_lower)
+        if not note:
+            note = "AI 未能生成关键词，已按文件名关键词进行搜索"
+    if not description:
+        description = f"图片: {filename}"
+
+    keywords = keywords[:8]
+
+    # 2) Search existing assets by the keywords (ranked by hit count)
+    items = await _search_assets_by_keywords(keywords, db, limit=24)
+
+    return {
+        "description": description,
+        "keywords": keywords,
+        "fallback": fallback,
+        "note": note,
+        "items": items,
+        "total": len(items),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Wildcard-path routes (/{asset_id} — MUST be defined AFTER static paths)
 # ═══════════════════════════════════════════════════════════════════════
@@ -578,6 +672,17 @@ async def _generate_ai_tags(asset_id: str, db: AsyncSession) -> None:
         asset.status = "ready"
         await db.flush()
         await db.commit()
+
+        # Cross-project: push AI tags to 数据中枢(⑥) as annotation reference (best-effort)
+        try:
+            from app.services.datahub_client import push_asset_tags_to_datahub
+            await push_asset_tags_to_datahub(
+                filename=asset.original_name,
+                ai_description=asset.ai_description or "",
+                ai_tags=asset.ai_tags or [],
+            )
+        except Exception:
+            logger.debug("DataHub tag push failed (best-effort): %s", asset_id)
     except Exception as e:
         logger.exception("AI tagging completely failed: %s", asset_id)
         asset.status = "ready"
@@ -612,6 +717,71 @@ def _mock_tag_from_name(name: str) -> list[str]:
     if not tags:
         tags = ["uncategorized"]
     return tags
+
+
+def _keywords_from_filename(name_lower: str) -> list[str]:
+    """Extract search keywords from a filename (LLM fallback for image search)."""
+    stem = os.path.splitext(name_lower)[0]
+    # Chinese filenames often glue words with 的/与/和 — split them into usable keywords
+    stem = re.sub(r"[的与和及]", " ", stem)
+    parts = re.split(r"[^a-z0-9一-鿿]+", stem)
+    stopwords = {
+        "img", "image", "photo", "pic", "picture", "dsc", "screenshot",
+        "wechat", "mmexport", "untitled", "tmp", "final", "copy",
+        "v1", "v2", "v3", "new",
+    }
+    keywords = [p for p in parts if len(p) >= 2 and p not in stopwords]
+    return keywords[:8]
+
+
+async def _search_assets_by_keywords(
+    keywords: list[str], db: AsyncSession, limit: int = 24
+) -> list[dict]:
+    """Search assets matching any keyword, ranked by total keyword hits."""
+    if not keywords:
+        return []
+
+    conditions = []
+    for kw in keywords:
+        pattern = f"%{kw}%"
+        conditions.append(Asset.filename.ilike(pattern))
+        conditions.append(Asset.ai_description.ilike(pattern))
+        conditions.append(cast(Asset.ai_tags, String).ilike(pattern))
+        conditions.append(cast(Asset.tags, String).ilike(pattern))
+
+    result = await db.execute(
+        select(Asset)
+        .where(Asset.status != "deleted", or_(*conditions))
+        .limit(200)
+    )
+    assets = result.scalars().all()
+
+    def _score(a: Asset) -> int:
+        haystacks = {
+            "ai_tags": " ".join(a.ai_tags or []).lower(),
+            "tags": " ".join(a.tags or []).lower(),
+            "filename": (a.filename or "").lower(),
+            "desc": (a.ai_description or "").lower(),
+        }
+        score = 0
+        for kw in keywords:
+            kwl = kw.lower()
+            if kwl in haystacks["ai_tags"]:
+                score += 3
+            if kwl in haystacks["tags"]:
+                score += 2
+            if kwl in haystacks["filename"]:
+                score += 2
+            if kwl in haystacks["desc"]:
+                score += 1
+        return score
+
+    ranked = sorted(
+        assets,
+        key=lambda a: (_score(a), a.created_at.timestamp() if a.created_at else 0),
+        reverse=True,
+    )
+    return [_asset_to_response(a) for a in ranked[:limit]]
 
 
 def _asset_to_response(a: Asset) -> dict:

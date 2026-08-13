@@ -65,10 +65,13 @@
             </div>
           </div>
           <div class="ch-actions">
-            <n-button size="small" quaternary @click="endSession">⏹ 结束训练</n-button>
-            <n-button size="small" quaternary @click="resetSession">🔄 换客户</n-button>
+            <n-button v-if="!isReplay" size="small" quaternary @click="endSession">⏹ 结束训练</n-button>
+            <n-button v-else size="small" quaternary @click="openReport">📊 查看报告</n-button>
+            <n-button size="small" quaternary @click="resetSession">{{ isReplay ? '✕ 退出回放' : '🔄 换客户' }}</n-button>
           </div>
         </div>
+
+        <div v-if="isReplay" class="replay-banner">👁️ 查看历史记录 — 该训练已结束，以下为只读回放</div>
 
         <div class="chat-messages" ref="chatContainer">
           <div v-for="(msg, i) in messages" :key="i" class="chat-msg" :class="msg.role">
@@ -97,7 +100,12 @@
           </div>
         </div>
 
-        <div class="chat-input-bar">
+        <div v-if="isReplay" class="replay-bar">
+          <span class="replay-bar-text">👁️ 训练已结束，无法继续对话 — 可查看报告或开始新一轮对练</span>
+          <n-button size="small" quaternary type="primary" @click="openReport">📊 查看报告</n-button>
+          <n-button size="small" type="primary" @click="resetSession">🎭 开始新对练</n-button>
+        </div>
+        <div v-else class="chat-input-bar">
           <n-input
             v-model:value="userInput"
             type="textarea"
@@ -165,6 +173,51 @@
           <div class="rh-label">综合评分</div>
           <div class="rh-value">{{ reportData.session.overall_score ?? overallScore }}</div>
         </div>
+        <div class="report-section">
+          <h4>📈 进步曲线</h4>
+          <template v-if="trendEntries.length">
+            <div class="trend-chart">
+              <div class="trend-y-axis">
+                <span class="trend-y-label" style="top: 0%">100</span>
+                <span class="trend-y-label" style="top: 25%">75</span>
+                <span class="trend-y-label" style="top: 50%">50</span>
+                <span class="trend-y-label" style="top: 75%">25</span>
+                <span class="trend-y-label" style="top: 100%">0</span>
+              </div>
+              <div class="trend-cols">
+                <div v-for="entry in trendEntries" :key="entry.round" class="trend-col">
+                  <span class="trend-val">{{ entry.overall }}</span>
+                  <div class="trend-bars">
+                    <div class="trend-gridline" style="top: 0%" />
+                    <div class="trend-gridline" style="top: 25%" />
+                    <div class="trend-gridline" style="top: 50%" />
+                    <div class="trend-gridline" style="top: 75%" />
+                    <div
+                      v-for="dim in scoreDimensions"
+                      :key="dim.key"
+                      class="trend-bar"
+                      :style="{ height: barHeight(entry[dim.key]), background: dim.color }"
+                      :title="`第${entry.round}轮 · ${dim.label}: ${entry[dim.key] ?? 0}分`"
+                    />
+                    <div
+                      class="trend-bar trend-bar-overall"
+                      :style="{ height: barHeight(entry.overall) }"
+                      :title="`第${entry.round}轮 · 综合: ${entry.overall}分`"
+                    />
+                  </div>
+                  <span class="trend-round">第{{ entry.round }}轮</span>
+                </div>
+              </div>
+            </div>
+            <div class="trend-legend">
+              <span v-for="dim in scoreDimensions" :key="dim.key" class="trend-legend-item">
+                <i class="tli-dot" :style="{ background: dim.color }" />{{ dim.label }}
+              </span>
+              <span class="trend-legend-item"><i class="tli-dot tli-overall" />综合</span>
+            </div>
+          </template>
+          <p v-else class="trend-empty">暂无评分数据 — 完成至少一轮对话后即可查看进步曲线</p>
+        </div>
         <div class="report-section" v-if="reportData.strengths.length">
           <h4>💪 优势</h4>
           <ul><li v-for="s in reportData.strengths" :key="s">{{ s }}</li></ul>
@@ -185,7 +238,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
-import { trainingApi } from '../api/training'
+import { trainingApi, type TrainingReport } from '../api/training'
 import { useAuthStore } from '../stores/auth'
 import TrainingHistory from './TrainingHistory.vue'
 
@@ -209,7 +262,8 @@ const userInput = ref('')
 const isThinking = ref(false)
 const showHistory = ref(false)
 const showReport = ref(false)
-const reportData = ref<any>(null)
+const reportData = ref<TrainingReport | null>(null)
+const isReplay = ref(false)
 
 interface ChatMsg { role: string; content: string; hint?: string }
 const messages = ref<ChatMsg[]>([])
@@ -230,6 +284,13 @@ const overallScore = computed(() => {
   if (scores.every(s => s === 0)) return 0
   return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
 })
+
+// 进步曲线数据（报告中的 score_trend）
+const trendEntries = computed(() => reportData.value?.score_trend ?? [])
+function barHeight(v: number | undefined): string {
+  const score = Math.max(0, Math.min(100, Number(v) || 0))
+  return score + '%'
+}
 
 function scoreLevel(v: number): string {
   if (v >= 80) return 'excellent'
@@ -263,6 +324,7 @@ async function startSession() {
     const session = res.data
     currentSessionId.value = session.id
     sessionActive.value = true
+    isReplay.value = false
     currentRound.value = 0
     messages.value = []
     coachHints.value = []
@@ -278,11 +340,17 @@ async function startSession() {
   } finally { isStarting.value = false }
 }
 
-function resetSession() { sessionActive.value = false; selectedType.value = ''; currentSessionId.value = '' }
+function resetSession() {
+  sessionActive.value = false
+  isReplay.value = false
+  selectedType.value = ''
+  currentSessionId.value = ''
+  userInput.value = ''
+}
 
 async function handleSend() {
   const text = userInput.value.trim()
-  if (!text || isThinking.value || !currentSessionId.value) return
+  if (!text || isThinking.value || !currentSessionId.value || isReplay.value) return
   userInput.value = ''
   messages.value.push({ role: 'user', content: text })
   isThinking.value = true
@@ -325,18 +393,24 @@ async function handleSend() {
   finally { isThinking.value = false }
 }
 
+async function openReport() {
+  if (!currentSessionId.value) return
+  try {
+    const reportRes = await trainingApi.getReport(currentSessionId.value)
+    reportData.value = reportRes.data
+    showReport.value = true
+  } catch { message.error('获取报告失败') }
+}
+
 async function endSession() {
   try {
     if (currentSessionId.value) {
       await trainingApi.endSession(currentSessionId.value)
       message.success(`训练结束！综合评分: ${overallScore.value} 分`)
-      try {
-        const reportRes = await trainingApi.getReport(currentSessionId.value)
-        reportData.value = reportRes.data
-        showReport.value = true
-      } catch {}
+      await openReport()
     }
     sessionActive.value = false
+    isReplay.value = false
   } catch { message.error('结束训练失败') }
 }
 
@@ -349,6 +423,8 @@ async function loadHistorySession(sessionId: string) {
     selectedType.value = session.customer_type
     productContext.value = session.product_context || ''
     sessionActive.value = true
+    // 已结束的会话为只读回放；进行中的会话可继续对练
+    isReplay.value = session.status !== 'active'
     currentRound.value = session.total_rounds
     messages.value = []
     coachHints.value = []
@@ -527,6 +603,47 @@ async function loadHistorySession(sessionId: string) {
 .report-section li { font-size: 13px; color: #64748b; line-height: 1.8; }
 .report-section p { font-size: 14px; color: #64748b; line-height: 1.6; }
 
+/* ── 进步曲线 ── */
+.trend-chart { display: flex; gap: 6px; padding-left: 26px; position: relative; }
+.trend-y-axis { position: absolute; left: 0; top: 18px; height: 150px; width: 24px; }
+.trend-y-label {
+  position: absolute; right: 2px; transform: translateY(-50%);
+  font-size: 10px; color: #94a3b8; line-height: 1;
+}
+.trend-cols { flex: 1; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+.trend-col { flex: 1 0 auto; min-width: 52px; display: flex; flex-direction: column; align-items: center; }
+.trend-val { height: 18px; line-height: 18px; font-size: 11px; font-weight: 700; color: #10b981; }
+.trend-bars {
+  height: 150px; width: 100%; display: flex; align-items: flex-end; justify-content: center;
+  gap: 3px; border-bottom: 1px solid #e2e8f0; position: relative;
+}
+.trend-gridline { position: absolute; left: 0; right: 0; height: 1px; background: #f1f5f9; pointer-events: none; }
+.trend-bar {
+  width: 5px; border-radius: 2px 2px 0 0; min-height: 2px;
+  transition: height .4s cubic-bezier(0.4,0,0.2,1);
+}
+.trend-bar-overall {
+  width: 9px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #10b981, #059669);
+}
+.trend-round { margin-top: 6px; font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.trend-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.trend-legend-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #64748b; }
+.tli-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.tli-overall { background: linear-gradient(180deg, #10b981, #059669); }
+.trend-empty { font-size: 13px; color: #94a3b8; }
+
+/* ── 历史回放（只读） ── */
+.replay-banner {
+  padding: 10px 24px; background: #ecfdf5; border-bottom: 1px solid #d1fae5;
+  font-size: 13px; color: #047857; font-weight: 600;
+}
+.replay-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 24px; border-top: 1px solid #e8ecf1; background: #fff;
+}
+.replay-bar-text { flex: 1; font-size: 13px; color: #64748b; }
+
 /* ── Thinking dots ── */
 .thinking-dots span { animation: dotPulse 1.5s infinite; }
 
@@ -548,6 +665,12 @@ async function loadHistorySession(sessionId: string) {
 [data-theme="dark"] .sph-item { border-bottom-color: #334155; }
 [data-theme="dark"] .sph-num { background: #334155; }
 [data-theme="dark"] .sp-hints { border-top-color: #334155; }
+[data-theme="dark"] .trend-bars { border-bottom-color: #334155; }
+[data-theme="dark"] .trend-gridline { background: #334155; }
+[data-theme="dark"] .trend-y-label, [data-theme="dark"] .trend-round, [data-theme="dark"] .trend-legend-item { color: #94a3b8; }
+[data-theme="dark"] .replay-banner { background: rgba(16,185,129,.08); border-bottom-color: rgba(16,185,129,.2); color: #34d399; }
+[data-theme="dark"] .replay-bar { background: #1e293b; border-top-color: #334155; }
+[data-theme="dark"] .replay-bar-text { color: #94a3b8; }
 
 @keyframes dotPulse {
   0%, 20% { opacity: 0; }

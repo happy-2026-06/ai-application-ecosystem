@@ -1,6 +1,7 @@
 """Agent platform API routes — sync task creation + SSE streaming execution."""
 import asyncio
 import json
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func
@@ -26,8 +27,13 @@ async def list_agents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """List agents with computed online status (heartbeat-based)."""
     result = await db.execute(select(Agent).order_by(Agent.name))
-    return result.scalars().all()
+    agents = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    for ag in agents:
+        ag.online = agent_service.is_agent_online(ag, now)
+    return agents
 
 
 @router.post("/agents", response_model=AgentResponse, status_code=201)
@@ -37,6 +43,7 @@ async def register_agent(
     db: AsyncSession = Depends(get_db),
 ):
     agent = Agent(name=request.name, role=request.role, capability=request.capability, status="online")
+    agent_service.touch_agent_heartbeat(agent)
     db.add(agent)
     await db.flush(); await db.refresh(agent)
     return agent
@@ -54,6 +61,23 @@ async def update_agent_status(
     if "status" in body: ag.status = body["status"]
     await db.flush()
     return {"message": "Agent状态已更新"}
+
+
+@router.post("/agents/{agent_id}/heartbeat")
+async def agent_heartbeat(
+    agent_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Agent health check: record a heartbeat, updating last_heartbeat."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    ag = result.scalar_one_or_none()
+    if not ag:
+        raise HTTPException(status_code=404, detail="Agent不存在")
+    now = datetime.now(timezone.utc)
+    ag.last_heartbeat = now
+    await db.flush()
+    return {"status": "ok", "agent_id": agent_id, "last_heartbeat": now.isoformat()}
 
 
 # ── Tasks — CRUD ──────────────────────────────────────────────────
@@ -161,11 +185,15 @@ async def create_task_stream(
                 agent_ids = [a.id for a in online[:3]]
 
             agent_names: dict[str, str] = {}
+            agent_objs: list[Agent] = []
             for aid in agent_ids:
                 r = await db.execute(select(Agent).where(Agent.id == aid))
                 ag = r.scalar_one_or_none()
                 if ag:
                     agent_names[aid] = ag.name
+                    agent_objs.append(ag)
+                    # Agent is being used → update its heartbeat
+                    agent_service.touch_agent_heartbeat(ag)
 
             task = Task(
                 user_id=current_user.id, title=request.title,
@@ -214,6 +242,21 @@ async def create_task_stream(
 
         yield _sse("task_created", {"task_id": task_id, "title": task_title, "mode": task_mode, "agent_count": total})
 
+        # Phase 2.5: Task auto-decomposition → per-agent subtasks
+        try:
+            plan = await agent_service.decompose_task(f"{task_title} {task_desc}", agent_objs)
+        except Exception:
+            plan = []
+        subtask_map = {p["agent_name"]: p["subtask"] for p in plan}
+        for m in meta:
+            m["subtask"] = subtask_map.get(m["agent_name"]) or f"任务: {task_title}\n描述: {task_desc}"
+
+        if plan:
+            yield _sse("decomposing", {
+                "message": "已为各Agent生成专属子任务",
+                "subtasks": [{"agent_name": p["agent_name"], "subtask": p["subtask"][:150]} for p in plan],
+            })
+
         try:
             if task_mode == "pipeline":
                 prev = f"任务目标: {task_title}\n\n任务描述: {task_desc}"
@@ -226,10 +269,15 @@ async def create_task_stream(
                         t0 = asyncio.get_event_loop().time()
                         try:
                             p = agent_service._get_agent_prompt(m["agent_name"])
-                            ex.input_data = prev[:3000]
+                            if i == 0:
+                                ex.input_data = m["subtask"]
+                            else:
+                                ex.input_data = prev[:3000]
                             if llm:
-                                q = f"{p}\n\n流水线第{i+1}步/{total}。\n\n"
-                                q += f"{prev}\n\n请开始分析输出。" if i == 0 else f"上一步输出:\n{prev[:2000]}\n\n请基于上一步输出继续深入。"
+                                if i == 0:
+                                    q = f"{p}\n\n流水线第{i+1}步/{total}。\n\n你的专属子任务:\n{m['subtask']}\n\n{prev}\n\n请开始分析输出。"
+                                else:
+                                    q = f"{p}\n\n流水线第{i+1}步/{total}。\n\n你的关注点:\n{m['subtask']}\n\n上一步输出:\n{prev[:2000]}\n\n请基于上一步输出继续深入。"
                                 r = await llm.ainvoke(q)
                                 out = r.content if hasattr(r, "content") else str(r)
                             else:
@@ -258,8 +306,9 @@ async def create_task_stream(
                         yield _sse("agent_start", {"agent_name": m["agent_name"], "step": len(results) + 1, "total": total})
                         try:
                             p = agent_service._get_agent_prompt(m["agent_name"])
+                            ex.input_data = m["subtask"]
                             if llm:
-                                q = f"{p}\n\n## 任务\n{task_title}\n\n## 详情\n{task_desc}\n\n请从你的专业角度独立完成。"
+                                q = f"{p}\n\n## 任务\n{task_title}\n\n## 详情\n{task_desc}\n\n## 你的专属子任务\n{m['subtask']}\n\n请从你的专业角度独立完成。"
                                 r = await llm.ainvoke(q)
                                 out = r.content if hasattr(r, "content") else str(r)
                             else:
@@ -286,8 +335,9 @@ async def create_task_stream(
                         yield _sse("agent_start", {"agent_name": m["agent_name"], "step": i + 1, "total": total})
                         try:
                             p = agent_service._get_agent_prompt(m["agent_name"])
+                            ex.input_data = m["subtask"]
                             if llm:
-                                q = f"{p}\n\n投票任务: {task_title}\n描述: {task_desc}\n\n请独立投票: 方案A激进/方案B稳健/方案C创新。格式: 【投票】方案 | 【理由】... | 【置信度】%"
+                                q = f"{p}\n\n投票任务: {task_title}\n描述: {task_desc}\n\n你的关注点:\n{m['subtask']}\n\n请独立投票: 方案A激进/方案B稳健/方案C创新。格式: 【投票】方案 | 【理由】... | 【置信度】%"
                                 r = await llm.ainvoke(q)
                                 out = r.content if hasattr(r, "content") else str(r)
                             else:
@@ -334,8 +384,9 @@ async def create_task_stream(
                             t0 = asyncio.get_event_loop().time()
                             try:
                                 p = agent_service._get_agent_prompt(m["agent_name"])
+                                ex.input_data = m["subtask"]
                                 if llm:
-                                    q = f"{p}\n\n🏛️ 辩论赛: {task_title}\n角色: {role}\n\n辩论记录:\n{chr(10).join(dlog[-3:])}\n\n请发表你的{role}。"
+                                    q = f"{p}\n\n🏛️ 辩论赛: {task_title}\n角色: {role}\n\n你的专业关注点:\n{m['subtask']}\n\n辩论记录:\n{chr(10).join(dlog[-3:])}\n\n请发表你的{role}。"
                                     r = await llm.ainvoke(q)
                                     sp = r.content if hasattr(r, "content") else str(r)
                                 else:
@@ -355,8 +406,9 @@ async def create_task_stream(
                             ex.status = "running"; await s.flush()
                             try:
                                 p = agent_service._get_agent_prompt(m["agent_name"])
+                                ex.input_data = m["subtask"]
                                 if llm:
-                                    q = f"{p}\n\n辩论主题: {task_title}\n完整辩论记录:\n{chr(10).join(dlog)}\n\n请裁定获胜方并说明理由。"
+                                    q = f"{p}\n\n辩论主题: {task_title}\n你的专业关注点:\n{m['subtask']}\n完整辩论记录:\n{chr(10).join(dlog)}\n\n请裁定获胜方并说明理由。"
                                     r = await llm.ainvoke(q)
                                     v = r.content if hasattr(r, "content") else str(r)
                                 else:

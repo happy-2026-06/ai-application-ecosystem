@@ -216,6 +216,39 @@ async def create_version(
     )
     item_count = count_result.scalar() or 0
 
+    # Build a real snapshot of annotation state for later comparison
+    ann_result = await db.execute(
+        select(DataAnnotation).where(DataAnnotation.dataset_id == dataset.id)
+    )
+    items = ann_result.scalars().all()
+
+    ai_annotated = sum(1 for i in items if i.annotated_by == "ai")
+    human_verified = sum(1 for i in items if i.is_verified)
+    categories: dict[str, int] = {}
+    confidences: list[float] = []
+    for item in items:
+        if item.category:
+            categories[item.category] = categories.get(item.category, 0) + 1
+        if item.confidence is not None:
+            confidences.append(item.confidence)
+    avg_confidence = round(sum(confidences) / len(confidences), 4) if confidences else 0.0
+
+    snapshot_meta = {
+        "item_count": item_count,
+        "ai_annotated": ai_annotated,
+        "human_verified": human_verified,
+        "categories": categories,
+        "avg_confidence": avg_confidence,
+    }
+
+    # Derive a quality score when none is supplied (same formula as quality report)
+    if quality_score is None:
+        coverage = ai_annotated / item_count if item_count else 0.0
+        ver_ratio = human_verified / item_count if item_count else 0.0
+        quality_score = round(
+            (avg_confidence * 0.4 + coverage * 0.3 + ver_ratio * 0.3) * 100, 1
+        )
+
     # Get the next version number
     ver_result = await db.execute(
         select(func.max(DataVersion.version_number)).where(
@@ -229,6 +262,7 @@ async def create_version(
         item_count=item_count,
         change_log=change_log,
         quality_score=quality_score,
+        snapshot_meta=snapshot_meta,
     )
     db.add(version)
     await db.flush()
