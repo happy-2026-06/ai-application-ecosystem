@@ -14,7 +14,7 @@ from langchain_core.language_models.llms import LLM
 from langchain_deepseek import ChatDeepSeek
 
 from app.config import settings
-from app.rag.prompts import TRAINING_COACH_PROMPT
+from app.rag.prompts import RAG_SYSTEM_PROMPT, TRAINING_COACH_PROMPT
 
 logger = logging.getLogger(__name__)
 

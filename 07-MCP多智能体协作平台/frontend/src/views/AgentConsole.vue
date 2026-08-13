@@ -264,7 +264,7 @@ async function doCreateStream(){
   liveTotalCount.value=0
   liveTask.value={status:'running'}
 
-  const token = authStore.accessToken
+  const token = authStore.token
   try{
     const resp = await fetch('/api/agent/tasks/stream', {
       method:'POST',

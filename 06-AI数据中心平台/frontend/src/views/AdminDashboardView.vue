@@ -5,7 +5,7 @@
       <n-gi v-for="s in cards" :key="s.label"><n-card size="small"><n-statistic :label="s.label" :value="s.value" /></n-card></n-gi>
     </n-grid>
     <n-grid cols="3" x-gap="12" style="margin-bottom:20px;">
-      <n-gi><n-card size="small" title="知识库"><n-statistic label="文档总数" :value="dash?.total_documents||0" /><n-statistic label="总片段数" :value="dash?.total_chunks||0" /></n-card></n-gi>
+      <n-gi><n-card size="small" title="数据集"><n-statistic label="数据集总数" :value="dash?.total_datasets||0" /><n-statistic label="标注总数" :value="dash?.total_annotations||0" /></n-card></n-gi>
       <n-gi><n-card size="small" title="反馈" style="background:#ecfdf5;"><n-statistic label="👍 好评" :value="dash?.feedback?.positive||0" /></n-card></n-gi>
       <n-gi><n-card size="small" title="反馈" style="background:#fef2f2;"><n-statistic label="👎 差评" :value="dash?.feedback?.negative||0" /></n-card></n-gi>
     </n-grid>

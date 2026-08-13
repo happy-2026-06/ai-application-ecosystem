@@ -165,7 +165,7 @@ class DataOperatorUser(HttpUser):
         texts = MOCK_DATA_TEXTS
         self.client.post(
             f"/api/data/datasets/{self.dataset_id}/ingest",
-            json={"items": [{"text": t} for t in texts]},
+            json={"texts": texts},
             name="POST /api/data/datasets/:id/ingest", catch_response=True,
         )
 
@@ -188,6 +188,9 @@ class DataOperatorUser(HttpUser):
             return
         self.client.post(
             f"/api/data/datasets/{self.dataset_id}/annotate",
+            json={"dataset_id": self.dataset_id,
+                  "items": [{"text": t, "index": i}
+                            for i, t in enumerate(MOCK_DATA_TEXTS)]},
             name="POST /api/data/datasets/:id/annotate", catch_response=True,
         )
 
@@ -241,8 +244,8 @@ class DataOperatorUser(HttpUser):
             return
         self.client.post(
             "/api/data/external/ingest",
-            json={"source": "p1-customer-service",
-                  "items": [{"text": t} for t in MOCK_DATA_TEXTS[:2]]},
+            json={"source_project": "p1-customer-service",
+                  "texts": MOCK_DATA_TEXTS[:2]},
             name="POST /api/data/external/ingest", catch_response=True,
         )
 

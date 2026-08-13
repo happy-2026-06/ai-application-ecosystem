@@ -55,7 +55,7 @@ docker compose up -d p7-backend p7-frontend
 │   │   ├── core/             # JWT 认证
 │   │   ├── models/           # ORM 模型 (Agent, Task, Execution)
 │   │   ├── schemas/          # Pydantic 数据模型
-│   │   ├── services/         # 业务逻辑 (agent_service, action_registry, datahub_client)
+│   │   ├── services/         # 业务逻辑 (agent_service, action_registry, auth_service, chat_service)
 │   │   └── main.py
 │   ├── tests/                # pytest + locust
 │   ├── Dockerfile

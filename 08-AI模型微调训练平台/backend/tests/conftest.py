@@ -5,6 +5,7 @@ from httpx import AsyncClient, ASGITransport
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/_test.db"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["DEBUG"] = "false"
+os.environ["ADMIN_PASSWORD"] = "123456"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

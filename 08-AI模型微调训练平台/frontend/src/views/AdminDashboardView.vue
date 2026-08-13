@@ -58,7 +58,13 @@ const statsCards=computed(()=>[
   {label:'总会话',value:dash.value?.total_sessions||0,icon:'💬',color:'#3b82f6'},
   {label:'总消息',value:dash.value?.total_messages||0,icon:'📝',color:'#8b5cf6'},
 ])
-onMounted(async()=>{try{const r=await apiClient.get('/admin/dashboard');dash.value=r.data}catch{message.error('加载失败')}})
+onMounted(async()=>{
+  try{
+    const r=await apiClient.get('/admin/dashboard')
+    const ft=await apiClient.get('/finetune/dashboard')
+    dash.value={...r.data,...ft.data}  // 合并用户统计 + 微调训练统计
+  }catch{message.error('加载失败')}
+})
 </script>
 
 <style scoped>

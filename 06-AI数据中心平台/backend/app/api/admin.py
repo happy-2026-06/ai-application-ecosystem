@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.session import Session
 from app.models.message import Message
+from app.models.data import DataSet, DataAnnotation
 
 from app.core.auth import admin_required
 from app.schemas.auth import UserResponse
@@ -87,11 +88,19 @@ async def get_dashboard(
     session_result = await db.execute(select(func.count(Session.id)))
     total_sessions = session_result.scalar()
 
+    dataset_result = await db.execute(select(func.count(DataSet.id)))
+    total_datasets = dataset_result.scalar() or 0
+
+    annotation_result = await db.execute(select(func.count(DataAnnotation.id)))
+    total_annotations = annotation_result.scalar() or 0
+
     return {
         "total_users": user_stats.total_users,
         "active_users": user_stats.active_users,
         "total_sessions": total_sessions,
         "total_messages": msg_stats.total_messages,
+        "total_datasets": total_datasets,
+        "total_annotations": total_annotations,
         "feedback": {
             "positive": msg_stats.positive or 0,
             "negative": msg_stats.negative or 0,

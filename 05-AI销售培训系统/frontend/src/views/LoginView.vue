@@ -155,15 +155,14 @@ async function handleLogin() {
   const v = await formRef.value?.validate().catch(() => false); if (!v) return
   loading.value = true; errorMsg.value = ''
   try {
-    await authStore.login({ username: form.username, password: form.password })
-    message.success('登录成功')
-    await new Promise(r => setTimeout(r, 300))
-    router.push((route.query.redirect as string) || '/training')
-  } catch (e: any) {
-    const detail = e?.response?.data?.detail || ''
-    if (detail) errorMsg.value = detail
-    else if (e?.response?.status === 403) errorMsg.value = '账户已被禁用'
-    else errorMsg.value = '登录失败，请检查用户名和密码'
+    const ok = await authStore.login({ username: form.username, password: form.password })
+    if (ok) {
+      message.success('登录成功')
+      await new Promise(r => setTimeout(r, 300))
+      router.push((route.query.redirect as string) || '/training')
+    } else {
+      errorMsg.value = '登录失败，请检查用户名和密码'
+    }
   } finally { loading.value = false }
 }
 </script>

@@ -40,7 +40,7 @@ const fr = ref<FormInst|null>(null); const ld = ref(false); const sp = ref(false
 const f = reactive({ u: '', p: '' })
 const r: FormRules = { u: [{ required: true }], p: [{ required: true }] }
 const ei = computed(() => err.value.includes('不存在')?'🚫':err.value.includes('密码')?'🔑':'⚠️')
-async function login() {const v = await fr.value?.validate().catch(() => false); if (!v) return; ld.value = true; err.value = ''; try { await auth.login({ username: f.u, password: f.p }); msg.success('登录成功'); await new Promise(r=>setTimeout(r,300)); router.push((route.query.redirect as string)||'/agent') } catch (e: any) { err.value = e?.response?.data?.detail || '登录失败' } finally { ld.value = false }}
+async function login() {const v = await fr.value?.validate().catch(() => false); if (!v) return; ld.value = true; err.value = ''; const ok = await auth.login({ username: f.u, password: f.p }); if (!ok) { err.value = '用户名或密码错误' } else { msg.success('登录成功'); await new Promise(r=>setTimeout(r,300)); router.push((route.query.redirect as string)||'/agent') } ld.value = false}
 </script>
 
 <style scoped>

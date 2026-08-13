@@ -8,7 +8,7 @@
         <div class="stat-card" :style="{borderTop:'3px solid '+s.color}">
           <div class="stat-icon">{{s.icon}}</div>
           <n-statistic :label="s.label">
-            <template #value><span :style="{color:s.color}">{{s.value}}</span></template>
+            <span :style="{color:s.color}">{{s.value}}</span>
           </n-statistic>
         </div>
       </n-gi>
@@ -54,7 +54,7 @@ const statsCards=computed(()=>[
   {label:'Agent数',value:dash.value?.total_agents||0,icon:'🤖',color:'#3b82f6'},
   {label:'总任务',value:dash.value?.total_tasks||0,icon:'📋',color:'#f59e0b'},
 ])
-onMounted(async()=>{try{const r=await apiClient.get('/admin/dashboard');dash.value=r.data}catch{message.error('加载失败')}})
+onMounted(async()=>{try{const[ad,gd]=await Promise.all([apiClient.get('/admin/dashboard'),apiClient.get('/agent/dashboard')]);dash.value={...ad.data,...gd.data}}catch{message.error('加载失败')}})
 </script>
 
 <style scoped>

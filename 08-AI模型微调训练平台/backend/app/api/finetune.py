@@ -1,4 +1,5 @@
 """Fine-tuning API routes."""
+import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,8 @@ from app.schemas.finetune import (
     ABTestCreate, ABTestResponse,
 )
 from app.services import finetune_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

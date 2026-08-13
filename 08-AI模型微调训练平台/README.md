@@ -5,7 +5,7 @@
 ## ✨ 核心功能
 
 - **🔬 QLoRA 微调训练**：低显存高效微调，支持超参配置（learning_rate、epochs、batch_size）
-- **📈 训练监控**：Loss 曲线、评估指标（BLEU/ROUGE）实时展示
+- **📈 训练监控**：Loss 曲线、评估指标（BLEU/ROUGE）展示（当前为模拟训练生成，真实微调引擎预留）
 - **⚖️ A/B 对比测试**：微调模型 vs 基座模型对比，LLM Judge 自动评判
 - **🚀 一键部署**：训练完成 → 部署为推理 API，其他项目可直接调用
 - **🧠 Smart Proxy 三层推理**：
@@ -23,7 +23,7 @@
 |---|------|
 | **后端框架** | FastAPI (异步) + SQLAlchemy 2.0 |
 | **前端** | Vue 3 + TypeScript + Naive UI + Pinia |
-| **微调引擎** | QLoRA（模拟训练 + 真实 Unslloth 集成预留） |
+| **微调引擎** | QLoRA（模拟训练 + 真实 Unsloth 集成预留） |
 | **评估** | BLEU/ROUGE + LLM-as-Judge |
 | **推理加速** | Smart Proxy（意图路由 + 少样本检索 + 缓存） |
 | **数据库** | SQLite (开发) / PostgreSQL (生产) |
@@ -40,7 +40,16 @@
 ```bash
 # 本地开发
 cd 08-AI模型微调训练平台
-start.bat
+
+# 1. 启动后端（端口 8808）
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8808
+
+# 2. 另开终端，启动前端（端口 3008）
+cd ../frontend
+npm install
+npm run dev
 
 # 或 Docker
 docker compose up -d p8-backend p8-frontend
@@ -71,7 +80,6 @@ docker compose up -d p8-backend p8-frontend
 │   ├── Dockerfile
 │   └── package.json
 ├── sample-data/
-├── start.bat / start.py
 └── README.md
 ```
 
@@ -94,7 +102,7 @@ docker compose up -d p8-backend p8-frontend
 | GET  | `/api/finetune/models/cache-stats` | 缓存统计 |
 | POST | `/api/finetune/models/cache-clear` | 清除缓存 |
 | GET  | `/api/finetune/dashboard` | 训练仪表盘 |
-| POST | `/api/finetune/models/{id}/ab-test` | A/B 对比测试 |
+| POST | `/api/finetune/tasks/{task_id}/abtests` | A/B 对比测试 |
 
 ## 📄 License
 

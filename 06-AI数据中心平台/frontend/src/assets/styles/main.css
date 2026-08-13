@@ -1,4 +1,4 @@
-/* Global styles for RAG Knowledge Base Q&A System */
+/* AI数据中心平台 — Global Design System */
 
 * {
   margin: 0;
@@ -34,11 +34,11 @@ html, body, #app {
 }
 
 /* Dark mode scrollbar */
-html[theme='dark'] ::-webkit-scrollbar-thumb {
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
   background: #555;
 }
 
-html[theme='dark'] ::-webkit-scrollbar-thumb:hover {
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #777;
 }
 

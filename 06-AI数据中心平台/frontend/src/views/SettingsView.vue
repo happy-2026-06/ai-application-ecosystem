@@ -16,7 +16,7 @@
     <!-- Name -->
     <div class="set-section">
       <h3>显示名称</h3>
-      <p class="desc">会显示在侧边栏和聊天中</p>
+      <p class="desc">会显示在页面右上角的个人菜单中</p>
       <n-space vertical>
         <n-input v-model:value="displayName" placeholder="输入昵称" size="large" maxlength="20" style="max-width:360px;" />
         <n-button type="primary" @click="saveName" :loading="sn">保存名称</n-button>

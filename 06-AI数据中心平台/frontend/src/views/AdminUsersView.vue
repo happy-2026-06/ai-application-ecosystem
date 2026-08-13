@@ -1,6 +1,6 @@
 <template>
   <div class="apage">
-    <div class="atop"><h2>用户管理</h2><n-button @click="$router.push('/admin/kb')">📚 知识库</n-button></div>
+    <div class="atop"><h2>用户管理</h2></div>
     <n-card>
       <n-data-table :columns="cols" :data="users" :loading="loading" :pagination="{pageSize:10}" :row-key="(r:any)=>r.id" />
     </n-card>

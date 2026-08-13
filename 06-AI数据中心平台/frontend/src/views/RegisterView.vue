@@ -3,8 +3,8 @@
     <div class="reg-left">
       <div class="left-inner">
         <span class="logo-icon">🤖</span>
-        <h1>加入 RAG 知识库</h1>
-        <p>注册即享 AI 智能商品问答</p>
+        <h1>加入 AI 数据中心</h1>
+        <p>注册即可开始数据采集与标注</p>
         <div class="feat-list">
           <div class="feat"><span>🚀</span> 秒级响应</div><div class="feat"><span>📚</span> 海量知识</div>
           <div class="feat"><span>🎯</span> 精准溯源</div><div class="feat"><span>🔒</span> 数据安全</div>

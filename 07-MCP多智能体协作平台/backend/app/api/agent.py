@@ -175,7 +175,7 @@ async def create_task_stream(
             await db.flush()
             await db.refresh(task)
 
-            exec_ids: list[str] = []
+            executions = []
             for i, aid in enumerate(agent_ids):
                 if aid not in agent_names:
                     continue
@@ -185,10 +185,11 @@ async def create_task_stream(
                     input_data=f"任务: {task.title}\n描述: {task.description or ''}",
                 )
                 db.add(ex)
-                exec_ids.append(str(ex.id))
+                executions.append(ex)
 
             task.status = "running"
             await db.flush()
+            exec_ids: list[str] = [str(ex.id) for ex in executions]
             await db.commit()
 
             task_id = str(task.id)
@@ -392,11 +393,12 @@ async def dashboard(
     total_t = (await db.execute(select(func.count(Task.id)))).scalar() or 0
     completed = (await db.execute(select(func.count(Task.id)).where(Task.status == "completed"))).scalar() or 0
     running = (await db.execute(select(func.count(Task.id)).where(Task.status == "running"))).scalar() or 0
+    failed = (await db.execute(select(func.count(Task.id)).where(Task.status == "failed"))).scalar() or 0
     recent = (await db.execute(select(Task).order_by(Task.created_at.desc()).limit(5))).scalars().all()
     return {
         "total_agents": total, "online_agents": online,
         "total_tasks": total_t, "completed_tasks": completed,
-        "running_tasks": running, "recent_tasks": list(recent),
+        "running_tasks": running, "failed_tasks": failed, "recent_tasks": list(recent),
     }
 
 

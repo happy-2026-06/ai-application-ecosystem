@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.models.user import User
-from app.models.session import Session
 from app.models.message import Message
+from app.models.training import TrainingSession, TrainingRound
 
 from app.core.auth import admin_required
 from app.schemas.auth import UserResponse
@@ -75,23 +75,29 @@ async def get_dashboard(
     )
     user_stats = user_result.one()
 
+    training_session_count = await db.execute(select(func.count(TrainingSession.id)))
+    training_round_count = await db.execute(select(func.count(TrainingRound.id)))
+    completed_session_count = await db.execute(
+        select(func.count(TrainingSession.id)).where(TrainingSession.status == "completed")
+    )
+    avg_score_result = await db.execute(select(func.avg(TrainingSession.overall_score)))
+    avg_score = avg_score_result.scalar()
+
     msg_result = await db.execute(
         select(
-            func.count(Message.id).label("total_messages"),
             func.sum(case((Message.feedback == "positive", 1), else_=0)).label("positive"),
             func.sum(case((Message.feedback == "negative", 1), else_=0)).label("negative"),
         )
     )
     msg_stats = msg_result.one()
 
-    session_result = await db.execute(select(func.count(Session.id)))
-    total_sessions = session_result.scalar()
-
     return {
         "total_users": user_stats.total_users,
         "active_users": user_stats.active_users,
-        "total_sessions": total_sessions,
-        "total_messages": msg_stats.total_messages,
+        "total_training_sessions": training_session_count.scalar() or 0,
+        "total_training_rounds": training_round_count.scalar() or 0,
+        "completed_sessions": completed_session_count.scalar() or 0,
+        "avg_score": round(avg_score, 1) if avg_score is not None else 0,
         "feedback": {
             "positive": msg_stats.positive or 0,
             "negative": msg_stats.negative or 0,

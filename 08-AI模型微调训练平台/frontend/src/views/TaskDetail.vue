@@ -234,7 +234,7 @@ async function doABTest(){
 
 async function loadHubDatasets(){
   showFromHub.value=true; hubLoading.value=true
-  try{const r=await apiClient.get('/data/datasets',{baseURL:'http://localhost:8606/api'});hubDatasets.value=r.data.filter((d:any)=>d.status==='ready')}catch{msg.error('加载数据中枢失败')}
+  try{const r=await apiClient.get('/data/datasets',{baseURL: import.meta.env.VITE_DATAHUB_API || 'http://localhost:8606/api'});hubDatasets.value=r.data.filter((d:any)=>d.status==='ready')}catch{msg.error('加载数据中枢失败')}
   finally{hubLoading.value=false}
 }
 

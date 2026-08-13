@@ -313,7 +313,7 @@ async def end_training_session(
 
     # Push training data to DataHub
     try:
-        from shared.datahub_client import push_training_to_datahub
+        from app.services.datahub_client import push_training_to_datahub
         rounds_result = await db.execute(
             select(TrainingRound)
             .where(TrainingRound.training_session_id == session_id)

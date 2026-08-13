@@ -81,7 +81,6 @@ defineEmits<{
 const sessions = ref<TrainingSession[]>([])
 const filterType = ref<string | null>(null)
 const filterOptions = [
-  { label: '全部', value: null },
   { label: '🧐 挑剔型', value: 'picky' },
   { label: '💰 价格敏感型', value: 'price' },
   { label: '🤔 犹豫型', value: 'hesitant' },

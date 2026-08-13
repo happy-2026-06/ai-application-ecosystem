@@ -165,9 +165,13 @@ async def auto_annotate(
     if not ds:
         raise HTTPException(status_code=404, detail="数据集不存在")
 
-    # Get item IDs based on indices
+    # Get item IDs based on indices — frontend sends page indices ordered by
+    # created_at DESC (same as the annotations list endpoint), so order here
+    # must match or the wrong items get annotated.
     items_result = await db.execute(
-        select(DataAnnotation).where(DataAnnotation.dataset_id == dataset_id)
+        select(DataAnnotation)
+        .where(DataAnnotation.dataset_id == dataset_id)
+        .order_by(DataAnnotation.created_at.desc())
     )
     all_items = list(items_result.scalars().all())
     indices = {item.index for item in request.items}

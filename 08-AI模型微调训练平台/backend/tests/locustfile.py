@@ -347,10 +347,27 @@ class TrainingOperatorUser(HttpUser):
     @tag("mutation")
     @task(1)
     def deploy_model(self):
-        """部署模型"""
+        """部署模型：先取任务下的模型版本ID，再PATCH部署"""
         if not self.token or not self.task_id:
             return
+        # 部署接口需要 model_id 而不是 task_id，先查任务下的模型版本
+        model_id = None
+        with self.client.get(
+            f"/api/finetune/tasks/{self.task_id}/models",
+            name="GET /api/finetune/tasks/:id/models", catch_response=True,
+        ) as r:
+            if r.status_code == 200:
+                models = r.json()
+                if isinstance(models, list) and models:
+                    model_id = models[0].get("id", "")
+                    r.success()
+                else:
+                    r.failure(f"任务 {self.task_id} 下暂无模型版本")
+            else:
+                r.failure(f"获取模型列表失败: {r.status_code}")
+        if not model_id:
+            return
         self.client.patch(
-            f"/api/finetune/models/{self.task_id}/deploy",
+            f"/api/finetune/models/{model_id}/deploy",
             name="PATCH /api/finetune/models/:id/deploy", catch_response=True,
         )

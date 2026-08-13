@@ -33,12 +33,25 @@
 
 ## 🚀 快速开始
 
-```bash
-# 本地开发
-cd 06-AI数据中心平台
-start.bat
+### 本地开发
 
-# 或 Docker
+```bash
+# 后端 (端口 8606)
+cd 06-AI数据中心平台/backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8606
+
+# 前端 (端口 3006)
+cd 06-AI数据中心平台/frontend
+npm install
+npm run dev
+```
+
+### Docker 部署
+
+在仓库根目录（docker-compose.yml 所在目录）执行：
+
+```bash
 docker compose up -d p6-backend p6-frontend
 ```
 
@@ -67,7 +80,6 @@ docker compose up -d p6-backend p6-frontend
 │   ├── Dockerfile
 │   └── package.json
 ├── sample-data/
-├── start.bat / start.py
 └── README.md
 ```
 
