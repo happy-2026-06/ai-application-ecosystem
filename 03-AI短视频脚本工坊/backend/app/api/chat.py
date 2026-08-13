@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.session import Session
 from app.models.message import Message
 from app.core.auth import get_current_user
+from app.core.limiter import limiter
 from app.schemas.chat import (
     SessionCreate,
     SessionUpdate,
@@ -191,12 +192,13 @@ async def get_messages(
 # ── Chat (SSE Streaming) ──────────────────────────────────────────
 
 @router.post("/ask")
+@limiter.limit("10/minute")
 async def ask_question(
-    request: ChatRequest,
+    body: ChatRequest,
     session_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    req: Request = None,  # injected by slowapi for rate limiting
+    request: Request = None,  # injected by slowapi for rate limiting
 ):
     """Send a question and receive a streaming answer via SSE.
 
@@ -218,7 +220,7 @@ async def ask_question(
 
     # Auto-generate session title from first question
     if chat_session.message_count == 0:
-        chat_session.title = request.question[:50] + ("..." if len(request.question) > 50 else "")
+        chat_session.title = body.question[:50] + ("..." if len(body.question) > 50 else "")
 
     async def generate_sse():
         from app.services.chat_service import stream_chat_response
@@ -227,7 +229,7 @@ async def ask_question(
             db=db,
             session=chat_session,
             user=current_user,
-            question=request.question,
+            question=body.question,
         ):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             if event.get("type") == "done":
@@ -236,12 +238,12 @@ async def ask_question(
 
         # Push to DataHub asynchronously
         try:
-            from shared.datahub_client import push_generated_content_to_datahub
+            from app.services.datahub_client import push_generated_content_to_datahub
             import asyncio as _asyncio
             _asyncio.ensure_future(
                 push_generated_content_to_datahub(
                     source_project="视界工坊",
-                    title=request.question[:50],
+                    title=body.question[:50],
                     content=full_answer,
                 )
             )

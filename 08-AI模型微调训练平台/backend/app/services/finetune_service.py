@@ -97,26 +97,34 @@ async def _fetch_training_cache(dataset_id: str | None) -> tuple[list[dict] | No
         return None, None
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(
-                f"http://p6-backend:8000/api/data/datasets/{dataset_id}/training-cache",
-                headers={"X-Internal-Call": "true"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                samples = data.get("samples", [])
-                # Extract unique domains from sample categories
-                domains = list(set(
-                    s.get("category", "通用") for s in samples if s.get("category")
-                ))
-                logger.info(
-                    "Fetched %d training samples from DataHub (dataset=%s), domains=%s",
-                    len(samples), dataset_id, domains,
-                )
-                return samples, domains
-            else:
-                logger.warning("DataHub training-cache returned status %d", resp.status_code)
-                return None, None
+        # Docker service name first, localhost fallback for local dev
+        urls = [
+            f"http://p6-backend:8000/api/data/datasets/{dataset_id}/training-cache",
+            f"http://localhost:8606/api/data/datasets/{dataset_id}/training-cache",
+        ]
+        for url in urls:
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(
+                        url,
+                        headers={"X-Internal-Call": "ai-ecosystem-internal-2026"},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        samples = data.get("samples", [])
+                        # Extract unique domains from sample categories
+                        domains = list(set(
+                            s.get("category", "通用") for s in samples if s.get("category")
+                        ))
+                        logger.info(
+                            "Fetched %d training samples from DataHub (dataset=%s), domains=%s",
+                            len(samples), dataset_id, domains,
+                        )
+                        return samples, domains
+                    logger.warning("DataHub training-cache (%s) returned status %d", url, resp.status_code)
+            except Exception as e:
+                logger.warning("DataHub attempt failed (%s): %s", url, e)
+        return None, None
     except Exception as e:
         logger.warning("Failed to fetch training cache from DataHub: %s", e)
         return None, None

@@ -350,9 +350,6 @@ async def create_task_stream(
                     results.append({"agent_name": m["agent_name"], "status": ex.status, "preview": (ex.output_data or "")[:300], "output": ex.output_data})
                     yield _sse("agent_done", {"agent_name": m["agent_name"], "step": i + 1, "total": total, "output_preview": (ex.output_data or "")[:300]})
 
-                for d in results:
-                    yield _sse("agent_done", d)
-
                 yield _sse("tallying", {"message": "正在统计投票..."})
                 if llm:
                     ballots = "\n\n---\n\n".join([f"Agent {d['agent_name']}:\n{(d.get('output') or '')[:800]}" for d in results if d['status'] == 'completed'])

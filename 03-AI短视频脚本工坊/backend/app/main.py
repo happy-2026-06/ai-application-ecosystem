@@ -10,12 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.api import api_router
-
-# ── Rate limiter ──────────────────────────────────────────────────────
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=[f"{settings.RATE_LIMIT_PER_MINUTE}/minute"],
-)
+from app.core.limiter import limiter
 
 
 # API docs are enabled by default in dev; set ENABLE_DOCS=false to disable in prod

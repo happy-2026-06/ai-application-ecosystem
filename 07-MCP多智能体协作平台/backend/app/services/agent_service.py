@@ -701,7 +701,9 @@ async def _call_action(action_name: str, urls: list[str], method: str, body: dic
     """Call a registered action across its candidate URLs — Docker service
     name first, localhost fallback second (local dev). Returns a
     human-readable result line."""
-    headers = {"X-Internal-Call": "true", "Content-Type": "application/json"}
+    # 数据中枢(⑥)内部认证使用共享密钥；其他项目的普通 API 仍需要 JWT，
+    # 跨项目编排调用会得到 401 并优雅记录到任务结果中（预期行为）。
+    headers = {"X-Internal-Call": "ai-ecosystem-internal-2026", "Content-Type": "application/json"}
     last_error = "无可用地址"
     async with httpx.AsyncClient(timeout=30.0) as client:
         for url in urls:

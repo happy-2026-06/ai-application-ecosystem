@@ -85,7 +85,7 @@ async def _get_user_from_token(token: str, db: AsyncSession) -> User | None:
 @router.post("/upload")
 async def upload_asset(
     file: UploadFile = File(...),
-    tags: str | None = None,
+    tags: str | None = Form(None, description="Comma-separated user tags"),
     filename: str | None = Form(None, description="Custom filename (without extension)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -110,7 +110,13 @@ async def upload_asset(
         ".mp4": "video/mp4", ".mov": "video/mov",
         ".pdf": "document/pdf", ".doc": "document/doc", ".docx": "document/docx",
     }
-    file_type = type_map.get(ext, "application/octet-stream")
+    # Extension whitelist — reject unsupported file types outright
+    if ext not in type_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型 {ext or '(无扩展名)'}，仅支持：{', '.join(type_map.keys())}",
+        )
+    file_type = type_map[ext]
 
     content = await file.read()
     max_size = 200 * 1024 * 1024
