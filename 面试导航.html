@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI应用项目 · 面试导航</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: "Inter","PingFang SC","Microsoft YaHei",sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; padding:40px 24px; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  h1 { text-align:center; font-size:28px; margin-bottom:6px; }
+  .sub { text-align:center; color:#94a3b8; font-size:14px; margin-bottom:28px; }
+  .cred { text-align:center; margin-bottom:32px; }
+  .cred span { display:inline-block; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:10px 20px; margin:0 6px; font-size:14px; }
+  .cred b { color:#38bdf8; font-family:monospace; font-size:16px; margin-left:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+  .card { display:block; background:#1e293b; border:1px solid #334155; border-radius:14px; padding:20px; text-decoration:none; color:inherit; transition:all .2s; }
+  .card:hover { transform:translateY(-3px); border-color:#38bdf8; box-shadow:0 8px 24px rgba(56,189,248,.15); }
+  .card .icon { font-size:32px; margin-bottom:10px; }
+  .card .name { font-size:17px; font-weight:700; margin-bottom:4px; }
+  .card .type { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-bottom:8px; }
+  .type-c { background:#1e3a8a; color:#93c5fd; }
+  .type-b { background:#4c1d95; color:#c4b5fd; }
+  .type-m { background:#14532d; color:#86efac; }
+  .card .desc { font-size:12px; color:#94a3b8; line-height:1.6; }
+  .card .url { font-size:11px; color:#64748b; margin-top:10px; font-family:monospace; }
+  .tips { margin-top:36px; background:#1e293b; border:1px solid #334155; border-radius:14px; padding:20px; font-size:13px; color:#94a3b8; line-height:1.8; }
+  .tips b { color:#e2e8f0; }
+  .dead { opacity:.45; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚀 AI 应用项目生态 · 面试导航</h1>
+  <p class="sub">8 个全栈 AI 项目 · Vue3 + FastAPI + LangChain + DeepSeek</p>
+
+  <div class="cred">
+    <span>👤 账号 <b>admin</b></span>
+    <span>🔑 密码 <b>ChangeMe!2024</b></span>
+    <span>🖥️ 8项目通用</span>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="http://127.0.0.1:3001" target="_blank">
+      <div class="icon">💬</div>
+      <div class="name">① RAG智能客服系统</div>
+      <span class="type type-c">C端</span>
+      <div class="desc">知识库问答 · 引用溯源 · 转人工工单</div>
+      <div class="url">127.0.0.1:3001</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3002" target="_blank">
+      <div class="icon">✍️</div>
+      <div class="name">② AI自媒体内容助手</div>
+      <span class="type type-c">C端</span>
+      <div class="desc">爆款标题 · 视频脚本 · 5平台适配</div>
+      <div class="url">127.0.0.1:3002</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3000" target="_blank">
+      <div class="icon">🎬</div>
+      <div class="name">③ AI短视频脚本工坊</div>
+      <span class="type type-c">C端</span>
+      <div class="desc">分镜脚本 · 口播话术 · TTS语音</div>
+      <div class="url">127.0.0.1:3000</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3004" target="_blank">
+      <div class="icon">🖼️</div>
+      <div class="name">④ AI素材管理平台</div>
+      <span class="type type-b">B端</span>
+      <div class="desc">素材上传 · AI打标 · 图搜图</div>
+      <div class="url">127.0.0.1:3004</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3005" target="_blank">
+      <div class="icon">🎯</div>
+      <div class="name">⑤ AI销售培训系统</div>
+      <span class="type type-b">B端</span>
+      <div class="desc">AI客户陪练 · 5维打分 · 进步曲线</div>
+      <div class="url">127.0.0.1:3005</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3006" target="_blank">
+      <div class="icon">📊</div>
+      <div class="name">⑥ AI数据中心平台</div>
+      <span class="type type-m">中台</span>
+      <div class="desc">数据采集 · AI标注 · 版本对比</div>
+      <div class="url">127.0.0.1:3006</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3007" target="_blank">
+      <div class="icon">🤖</div>
+      <div class="name">⑦ MCP多智能体协作平台</div>
+      <span class="type type-m">中台</span>
+      <div class="desc">任务自动拆解 · 4种编排模式 · SSE</div>
+      <div class="url">127.0.0.1:3007</div>
+    </a>
+    <a class="card" href="http://127.0.0.1:3008" target="_blank">
+      <div class="icon">🧠</div>
+      <div class="name">⑧ AI模型微调训练平台</div>
+      <span class="type type-m">中台</span>
+      <div class="desc">微调任务 · Loss曲线 · A/B对比</div>
+      <div class="url">127.0.0.1:3008</div>
+    </a>
+  </div>
+
+  <div class="tips">
+    <b>📌 使用说明</b><br>
+    1. 点击卡片在新标签页打开对应项目<br>
+    2. 登录：admin / ChangeMe!2024（8个项目通用）<br>
+    3. 每个项目独立 localStorage，需分别登录一次（登录后会被记住）<br>
+    4. 如果打不开 → 说明服务没启动，双击 <b>start-all-backends.bat</b> 启动后端，各前端目录运行 <b>npm run dev</b><br>
+    <b>🎤 面试演示顺序建议</b>：①客服(提问看真实AI+引用) → ⑦多智能体(任务拆解) → ⑥数据中心(数据飞轮) → ⑧微调(训练+部署) → ④素材(图搜图)
+  </div>
+</div>
+</body>
+</html>
