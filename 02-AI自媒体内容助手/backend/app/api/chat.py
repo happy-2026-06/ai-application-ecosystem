@@ -203,14 +203,14 @@ async def ask_question(
 
         # Push to DataHub asynchronously
         try:
-            from shared.datahub_client import push_generated_content_to_datahub
+            from app.services.datahub_client import push_generated_content_to_datahub
             import asyncio as _asyncio
             _asyncio.ensure_future(
                 push_generated_content_to_datahub(
                     source_project="灵笔引擎",
                     title=request.question[:50],
                     content=full_answer,
-                    platform=getattr(request, "platform", ""),
+                    platform="",
                 )
             )
         except Exception:
