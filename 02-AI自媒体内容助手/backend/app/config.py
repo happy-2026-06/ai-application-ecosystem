@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
+    # ── Fallback AI Providers (DeepSeek 失败时自动回退) ───────────────
+    ZHIPU_API_KEY: str = ""
+    DASHSCOPE_API_KEY: str = ""
+
     # ── Custom Model (微调模型代理) ───────────────────────────────────
     CUSTOM_LLM_URL: str = Field(
         default="",

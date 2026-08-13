@@ -1,5 +1,6 @@
 """Cross-project data push client — sends data to 数据中枢(⑥)."""
 import logging
+import re
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -9,6 +10,25 @@ DATAHUB_URL = "http://p6-backend:8000/api/data/external/ingest"
 DATAHUB_URL_LOCAL = "http://localhost:8606/api/data/external/ingest"
 
 
+def _clean_text(text: str, max_len: int = 300) -> str:
+    """Clean pushed text: strip markdown/emoji, collapse whitespace, truncate.
+
+    Data pushed to ⑥ will be displayed and annotated there — raw LLM output
+    contains markdown symbols (**bold**, - lists) and emoji that look like
+    garbled noise in the dataset list.
+    """
+    text = re.sub(r'\*\*|__|~~|`', '', text)          # markdown bold/italic/strike/code
+    text = re.sub(r'[\U0001F300-\U0001FAFF☀-➿️‍]', '', text)  # emoji
+    text = re.sub(r'^\s*[-*+]\s+', '· ', text, flags=re.MULTILINE)  # list bullets at line start
+    text = re.sub(r'([。！？：；])\s*[-*]\s+', r'\1 ', text)  # inline list markers after punctuation
+    text = re.sub(r'\n{2,}', '\n', text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = text.strip()
+    if len(text) > max_len:
+        text = text[:max_len] + '…'
+    return text
+
+
 async def push_chat_to_datahub(
     username: str,
     question: str,
@@ -16,10 +36,12 @@ async def push_chat_to_datahub(
     sources: list[dict] | None = None,
 ) -> bool:
     """Push a chat Q&A pair to the data hub as training data."""
-    text = f"Q: {question}\nA: {answer}"
+    q = _clean_text(question, 100)
+    a = _clean_text(answer, 300)
+    text = f"Q: {q}\nA: {a}"
     if sources:
         src_text = " | ".join(s.get("doc_name", "") for s in sources[:3])
-        text += f"\n[Sources: {src_text}]"
+        text += f"\n[来源: {src_text}]"
 
     return await _push("客服助手", "chat_qa", [text], f"来自客服的对话数据")
 
@@ -82,10 +104,12 @@ async def _push(
 
 
 def _get_admin_auth_header() -> dict:
-    """Get admin auth header for data hub API calls.
+    """Get auth header for data hub API calls.
 
-    Uses a pre-login approach: try to get a token via login endpoint.
-    Falls back to no auth (data hub accepts internal calls without auth).
+    Cross-project internal calls authenticate via the X-Internal-Call header
+    carrying the shared secret (configured as INTERNAL_CALL_SECRET in ⑥'s
+    config.py). The data hub accepts this instead of a JWT for machine-to-
+    machine pushes from other projects in the ecosystem.
     """
     return {"X-Internal-Call": "ai-ecosystem-internal-2026"}
 

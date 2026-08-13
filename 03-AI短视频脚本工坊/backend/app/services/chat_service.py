@@ -13,6 +13,8 @@ from app.models.user import User
 from app.models.session import Session
 from app.models.message import Message
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,8 +121,11 @@ async def stream_chat_response(
                         raw_answer += token_text
                         yield {"type": "token", "content": token_text}
             except Exception as e:
-                logger.warning("LLM unavailable, using dev mode fallback: %s", e)
-                raw_answer = _build_fallback_answer(question, sources)
+                logger.warning("LLM unavailable, trying fallback providers: %s", e)
+                raw_answer = (
+                    await _try_multi_provider(question, context, sources)
+                    or _build_fallback_answer(question, sources)
+                )
                 for char in raw_answer:
                     yield {"type": "token", "content": char}
 
@@ -228,11 +233,54 @@ def _build_mock_answer(question: str, sources: list[dict]) -> str:
     return "".join(parts)
 
 
+async def _try_multi_provider(question: str, context: str, sources: list[dict]) -> str | None:
+    """Last-ditch attempt via fallback AI providers before the dev-mode answer.
+
+    Only fires when at least one fallback provider key (ZHIPU_API_KEY /
+    DASHSCOPE_API_KEY) is configured. Retries DeepSeek (direct, non-streaming),
+    then Zhipu GLM, then DashScope Qwen. Returns None when no fallback provider
+    is configured or every provider fails.
+    """
+    from app.rag.multi_provider import MultiProviderLLM, build_providers_from_keys
+    from app.rag.prompts import RAG_SYSTEM_PROMPT, select_mode_guide
+
+    providers = build_providers_from_keys(settings.ZHIPU_API_KEY, settings.DASHSCOPE_API_KEY)
+    if not providers:
+        logger.info("No fallback AI provider configured — using dev-mode answer")
+        return None
+
+    # Prepend DeepSeek as a one-shot direct (non-streaming) retry.
+    if settings.DEEPSEEK_API_KEY and "your-" not in settings.DEEPSEEK_API_KEY.strip().lower():
+        providers.insert(0, {
+            "name": "DeepSeek",
+            "url": f"{settings.DEEPSEEK_API_BASE}/v1/chat/completions",
+            "key": settings.DEEPSEEK_API_KEY,
+            "model": settings.DEEPSEEK_MODEL,
+        })
+
+    prompt = RAG_SYSTEM_PROMPT.format(
+        mode_guide=select_mode_guide(question),
+        context=context,
+        question=question,
+    )
+    logger.info(
+        "Retrying question with %d fallback provider(s) and %d source(s)",
+        len(providers), len(sources),
+    )
+    try:
+        answer = await MultiProviderLLM(providers=providers)._acall(prompt)
+        logger.info("Fallback provider answered the question")
+        return answer
+    except Exception as e:
+        logger.warning("All fallback providers failed: %s", e)
+        return None
+
+
 def _build_fallback_answer(question: str, sources: list[dict]) -> str:
     """Build a dev-mode fallback answer when LLM is unavailable."""
     return (
         f"👋 你好！这是开发模式回复。\n\n"
         f"你的问题是：{question}\n\n"
-        f"⚠️ 当前 LLM 服务未配置，请设置 DEEPSEEK_API_KEY 环境变量来启用 AI 回答。\n\n"
+        f"⚠️ 当前 LLM 服务未配置，请设置 DEEPSEEK_API_KEY（或备选 ZHIPU_API_KEY / DASHSCOPE_API_KEY）环境变量来启用 AI 回答。\n\n"
         f"检索到 {len(sources)} 条相关文档片段（知识库可能为空）。"
     )

@@ -28,7 +28,7 @@
           <n-button :type="sortBy === 'name' ? 'primary' : 'default'" size="small" @click="sortBy = 'name'; loadAssets()">📋 名称</n-button>
           <n-button :type="sortBy === 'size' ? 'primary' : 'default'" size="small" @click="sortBy = 'size'; loadAssets()">📦 大小</n-button>
         </n-button-group>
-        <n-button size="large" secondary type="info" style="margin-right: 8px; border-radius: 12px;" @click="showFreeStockModal = true">🌐 免费图库</n-button>
+        <n-button size="large" secondary type="info" style="margin-right: 8px; border-radius: 12px;" @click="showFreeStockModal = true">🌍 外部图库</n-button>
         <n-button type="primary" size="large" class="upload-btn" @click="triggerUpload">📤 上传素材</n-button>
         <input ref="fileInputRef" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx" style="display:none" @change="onFileChange" />
       </div>
@@ -352,45 +352,88 @@
       </div>
     </n-modal>
 
-    <!-- ═══ Free Stock Photo Modal ═══ -->
-    <n-modal v-model:show="showFreeStockModal" preset="card" title="🌐 免费图库 — Lorem Picsum" size="huge" style="max-width: 900px;" :mask-closable="true">
+    <!-- ═══ External Stock Library Modal (外部图库) ═══ -->
+    <n-modal v-model:show="showFreeStockModal" preset="card" title="🌍 外部图库 — 免费商用素材" size="huge" style="max-width: 960px;" :mask-closable="true">
       <template #header-extra>
-        <n-button text size="small" @click="freeStockPage = Math.max(1, freeStockPage - 1)" :disabled="freeStockPage <= 1">◀ 上一页</n-button>
-        <span style="margin: 0 12px; font-size: 13px; color: var(--text-muted);">第 {{ freeStockPage }} 页</span>
-        <n-button text size="small" @click="loadFreeStock(freeStockPage + 1)">下一页 ▶</n-button>
+        <n-button text size="small" @click="searchStock(Math.max(1, stockPage - 1))" :disabled="stockPage <= 1 || stockLoading">◀ 上一页</n-button>
+        <span style="margin: 0 12px; font-size: 13px; color: var(--text-muted);">
+          第 {{ stockPage }} 页<span v-if="stockTotal"> · 共 {{ stockTotal }} 条</span>
+        </span>
+        <n-button text size="small" @click="searchStock(stockPage + 1)" :disabled="stockLoading">下一页 ▶</n-button>
       </template>
 
       <!-- URL Import -->
       <div class="url-import-row">
-        <n-input v-model:value="importUrl" placeholder="或者粘贴图片 URL 直接导入…" size="small" clearable style="flex: 1;" />
+        <n-input v-model:value="importUrl" placeholder="或者粘贴图片/视频 URL 直接导入…" size="small" clearable style="flex: 1;" />
         <n-input v-model:value="importUrlTags" placeholder="标签(逗号分隔)" size="small" style="width: 140px; margin: 0 8px;" />
         <n-button size="small" type="primary" @click="handleUrlImport" :loading="urlImporting">⬇ 导入</n-button>
       </div>
 
       <n-divider />
 
-      <!-- Loading -->
-      <div v-if="freeStockLoading" class="fs-loading">
-        <div class="loading-spinner" />
-        <p>加载免费图库…</p>
+      <!-- Source selector + search -->
+      <div class="stock-toolbar">
+        <n-radio-group v-model:value="stockSource" size="small">
+          <n-radio-button value="picsum">🖼️ 免费图库</n-radio-button>
+          <n-radio-button value="unsplash">📷 Unsplash</n-radio-button>
+          <n-radio-button value="pexels_photos">📸 Pexels 照片</n-radio-button>
+          <n-radio-button value="pexels_videos">🎬 Pexels 视频</n-radio-button>
+        </n-radio-group>
+        <template v-if="stockSource !== 'picsum'">
+          <n-input
+            v-model:value="stockQuery"
+            placeholder="输入英文关键词，如 sunset、city、cat…"
+            size="small" clearable style="flex: 1; margin: 0 8px;"
+            @keydown.enter="stockPage = 1; searchStock(1)"
+          />
+          <n-button size="small" type="primary" @click="stockPage = 1; searchStock(1)" :loading="stockLoading">🔍 搜索</n-button>
+        </template>
+        <span v-else class="stock-hint">Lorem Picsum 为随机图库（免Key），无需关键词，直接翻页浏览</span>
       </div>
 
-      <!-- Photo Grid -->
+      <div v-if="stockSource === 'unsplash'" class="stock-key-hint">
+        需后端 .env 配置 UNSPLASH_API_KEY（<a href="https://unsplash.com/developers" target="_blank" rel="noopener">免费注册</a>），未配置时会给出提示
+      </div>
+      <div v-else-if="stockSource !== 'picsum'" class="stock-key-hint">
+        需后端 .env 配置 PEXELS_API_KEY（<a href="https://www.pexels.com/api" target="_blank" rel="noopener">免费注册</a>），未配置时会给出提示
+      </div>
+
+      <n-divider />
+
+      <!-- Loading -->
+      <div v-if="stockLoading" class="fs-loading">
+        <div class="loading-spinner" />
+        <p>正在加载外部图库…</p>
+      </div>
+
+      <!-- Result Grid -->
       <div v-else class="fs-grid">
-        <div v-for="photo in freeStockPhotos" :key="photo.id" class="fs-card">
+        <div v-for="photo in stockPhotos" :key="'p' + photo.id" class="fs-card">
           <div class="fs-thumb">
             <img :src="photo.thumbnail" :alt="'Photo by ' + photo.author" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />
           </div>
           <div class="fs-info">
-            <span class="fs-author">📷 {{ photo.author }}</span>
+            <span class="fs-author" :title="photo.description || ''">📷 {{ photo.author || 'Unknown' }}</span>
             <span class="fs-size">{{ photo.width }}×{{ photo.height }}</span>
-            <n-button size="tiny" type="primary" @click="handleImportFreePhoto(photo)" :loading="photo._importing">⬇ 导入</n-button>
+            <n-button size="tiny" type="primary" @click="handleImportStock(photo)" :loading="photo._importing">⬇️ 导入到素材库</n-button>
+          </div>
+        </div>
+        <div v-for="video in stockVideos" :key="'v' + video.id" class="fs-card">
+          <div class="fs-thumb">
+            <img :src="video.thumbnail" :alt="'Video by ' + video.author" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />
+            <span class="fs-video-badge">▶ {{ formatDuration(video.duration) }}</span>
+          </div>
+          <div class="fs-info">
+            <span class="fs-author">🎬 {{ video.author || 'Unknown' }}</span>
+            <span class="fs-size">时长 {{ formatDuration(video.duration) }} · {{ video.width }}×{{ video.height }}</span>
+            <n-button size="tiny" type="primary" @click="handleImportStock(video)" :loading="video._importing">⬇️ 导入到素材库</n-button>
           </div>
         </div>
       </div>
 
-      <div v-if="!freeStockLoading && freeStockPhotos.length === 0" style="text-align: center; padding: 40px; color: var(--text-muted);">
-        <p>图库暂时无法加载，请检查网络后重试</p>
+      <div v-if="!stockLoading && stockPhotos.length === 0 && stockVideos.length === 0" style="text-align: center; padding: 40px; color: var(--text-muted);">
+        <p v-if="stockSource !== 'picsum' && !stockQuery.trim()">输入关键词，搜索 Unsplash / Pexels 的免费商用素材</p>
+        <p v-else>没有找到相关素材，换个关键词试试</p>
       </div>
     </n-modal>
   </div>
@@ -446,11 +489,16 @@ const imageSearchPreviewUrl = ref('')
 const imageSearching = ref(false)
 const imageSearchResult = ref<{ description: string; note: string | null; total: number } | null>(null)
 
-// ── Free stock photo modal ──
+// ── External stock library modal (外部图库) ──
+type StockSource = 'picsum' | 'unsplash' | 'pexels_photos' | 'pexels_videos'
 const showFreeStockModal = ref(false)
-const freeStockLoading = ref(false)
-const freeStockPhotos = ref<any[]>([])
-const freeStockPage = ref(1)
+const stockSource = ref<StockSource>('picsum')
+const stockQuery = ref('')
+const stockLoading = ref(false)
+const stockPhotos = ref<any[]>([])
+const stockVideos = ref<any[]>([])
+const stockPage = ref(1)
+const stockTotal = ref(0)
 const importUrl = ref('')
 const importUrlTags = ref('')
 const urlImporting = ref(false)
@@ -870,41 +918,90 @@ onMounted(() => {
   loadPopularTags()
 })
 
-// ── Free stock photo functions ──
-async function loadFreeStock(page: number) {
-  freeStockLoading.value = true
-  freeStockPage.value = page
+// ── External stock library functions ──
+async function searchStock(page: number) {
+  const source = stockSource.value
+  if (source !== 'picsum' && !stockQuery.value.trim()) {
+    message.warning('请输入搜索关键词')
+    return
+  }
+  stockLoading.value = true
   try {
-    const res = await assetApi.getFreeStockPhotos(page, 12)
-    freeStockPhotos.value = res.data.photos.map((p: any) => ({ ...p, _importing: false }))
-  } catch (e) {
-    console.error('Failed to load free stock:', e)
-    freeStockPhotos.value = []
-    message.error('免费图库加载失败，请检查网络')
+    if (source === 'picsum') {
+      const res = await assetApi.getFreeStockPhotos(page, 12)
+      stockPhotos.value = res.data.photos.map((p: any) => ({ ...p, _importing: false }))
+      stockVideos.value = []
+      stockTotal.value = 0
+    } else if (source === 'unsplash') {
+      const res = await assetApi.searchUnsplash(stockQuery.value.trim(), page, 12)
+      stockPhotos.value = res.data.photos.map((p: any) => ({ ...p, _importing: false }))
+      stockVideos.value = []
+      stockTotal.value = res.data.total
+    } else if (source === 'pexels_photos') {
+      const res = await assetApi.searchPexels(stockQuery.value.trim(), 'photos', page, 12)
+      stockPhotos.value = (res.data.photos || []).map((p: any) => ({ ...p, _importing: false }))
+      stockVideos.value = []
+      stockTotal.value = res.data.total
+    } else {
+      const res = await assetApi.searchPexels(stockQuery.value.trim(), 'videos', page, 12)
+      stockVideos.value = (res.data.videos || []).map((v: any) => ({ ...v, _importing: false }))
+      stockPhotos.value = []
+      stockTotal.value = res.data.total
+    }
+    stockPage.value = page
+  } catch (e: any) {
+    const status = e?.response?.status
+    const detail = e?.response?.data?.detail
+    stockPhotos.value = []
+    stockVideos.value = []
+    if (status === 503) {
+      message.error(detail || '未配置 API Key，请在后端 .env 中配置')
+    } else {
+      console.error('Failed to load stock library:', e)
+      message.error('外部图库加载失败，请检查网络')
+    }
   } finally {
-    freeStockLoading.value = false
+    stockLoading.value = false
   }
 }
 
-// Watch modal to load photos on first open
+// Watch modal to load stock library on first open
 watch(showFreeStockModal, (val) => {
-  if (val && freeStockPhotos.value.length === 0) {
-    loadFreeStock(1)
+  if (val && stockPhotos.value.length === 0 && stockVideos.value.length === 0) {
+    searchStock(stockPage.value)
   }
 })
 
-async function handleImportFreePhoto(photo: any) {
-  photo._importing = true
+// Switch source → reset page and reload
+watch(stockSource, () => {
+  stockPage.value = 1
+  stockPhotos.value = []
+  stockVideos.value = []
+  stockTotal.value = 0
+  if (showFreeStockModal.value) {
+    searchStock(1)
+  }
+})
+
+async function handleImportStock(item: any) {
+  item._importing = true
   try {
-    await assetApi.importFromUrl(photo.download_url)
-    message.success('素材导入成功！AI 正在生成标签…')
-    photo._importing = false
+    await assetApi.importFromUrl(item.download_url || item.url)
+    message.success('已导入，AI自动打标中')
+    item._importing = false
     refreshAfterChange()
   } catch (e: any) {
-    photo._importing = false
+    item._importing = false
     const detail = e?.response?.data?.detail || '导入失败'
     message.error('导入失败: ' + detail)
   }
+}
+
+function formatDuration(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.round(seconds % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 async function handleUrlImport() {
@@ -1184,8 +1281,14 @@ async function handleUrlImport() {
 [data-theme="dark"] .upload-item { background: var(--bg-surface); border-color: var(--border); }
 [data-theme="dark"] .preview-image-wrapper { background: var(--bg-body); }
 
-/* ═══ Free Stock Modal ═══ */
+/* ═══ External Stock Library Modal (外部图库) ═══ */
 .url-import-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+
+.stock-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.stock-hint { flex: 1; text-align: center; font-size: 12px; color: var(--text-muted); }
+.stock-key-hint { font-size: 11px; color: var(--text-muted); }
+.stock-key-hint a { color: var(--primary); text-decoration: none; }
+.stock-key-hint a:hover { text-decoration: underline; }
 
 .fs-loading {
   display: flex; flex-direction: column; align-items: center; padding: 40px; color: var(--text-muted);
@@ -1196,7 +1299,13 @@ async function handleUrlImport() {
   border: 1px solid var(--border-light); transition: all .2s var(--ease-smooth);
 }
 .fs-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.fs-thumb { height: 100px; overflow: hidden; }
+.fs-thumb { position: relative; height: 100px; overflow: hidden; }
+.fs-video-badge {
+  position: absolute; bottom: 6px; right: 6px; padding: 2px 8px;
+  border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: rgba(10, 8, 18, .68); color: #fff;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
 .fs-info {
   padding: 6px 8px; display: flex; flex-direction: column; gap: 2px;
 }

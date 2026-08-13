@@ -64,6 +64,43 @@ export interface ImageSearchResponse {
   total: number
 }
 
+export interface StockPhoto {
+  id: string
+  description?: string
+  width: number
+  height: number
+  url: string
+  thumbnail: string
+  download_url: string
+  author: string
+}
+
+export interface StockVideo {
+  id: string
+  url: string
+  thumbnail: string
+  download_url: string
+  width: number
+  height: number
+  duration: number
+  author: string
+}
+
+export interface UnsplashSearchResponse {
+  photos: StockPhoto[]
+  source: string
+  total: number
+  page: number
+}
+
+export interface PexelsSearchResponse {
+  photos?: StockPhoto[]
+  videos?: StockVideo[]
+  source: string
+  total: number
+  page: number
+}
+
 export const assetApi = {
   /** List assets with optional filters */
   list(params?: AssetListParams) {
@@ -151,6 +188,20 @@ export const assetApi = {
       license: string
       page: number
     }>('/assets/free-stock-photos', { params: { page, per_page: perPage } })
+  },
+
+  /** Search free photos on Unsplash (requires UNSPLASH_API_KEY on the backend) */
+  searchUnsplash(q: string, page = 1, perPage = 12) {
+    return apiClient.get<UnsplashSearchResponse>('/assets/unsplash/search', {
+      params: { q, page, per_page: perPage },
+    })
+  },
+
+  /** Search free photos/videos on Pexels (requires PEXELS_API_KEY on the backend) */
+  searchPexels(q: string, type: 'photos' | 'videos' = 'photos', page = 1, perPage = 12) {
+    return apiClient.get<PexelsSearchResponse>('/assets/pexels/search', {
+      params: { q, type, page, per_page: perPage },
+    })
   },
 
   /** Import asset from a public URL */

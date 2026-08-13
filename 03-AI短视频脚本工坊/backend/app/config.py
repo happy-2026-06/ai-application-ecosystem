@@ -90,9 +90,14 @@ class Settings(BaseSettings):
     TTS_DEFAULT_SPEED: str = "+0%"
 
     # ── Video Generation (智谱 CogVideoX) ─────────────────────────────
+    # ZHIPU_API_KEY 同时用作 LLM 回退供应商（DeepSeek 失败时回退到 glm-4-flash）
     ZHIPU_API_KEY: str = ""
     ZHIPU_VIDEO_MODEL: str = "cogvideox-2"
     VIDEO_OUTPUT_DIR: str = "./data/video_output"
+
+    # ── Fallback AI Provider (阿里通义 DashScope) ─────────────────────
+    # DeepSeek 失败时自动回退到 qwen-turbo（OpenAI 兼容接口）
+    DASHSCOPE_API_KEY: str = ""
 
     # ── Subtitle Export ───────────────────────────────────────────────
     SUBTITLE_OUTPUT_DIR: str = "./data/subtitles"

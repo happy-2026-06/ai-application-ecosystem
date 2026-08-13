@@ -47,12 +47,14 @@ async def client():
     from app.db.session import engine
     await engine.dispose()
     test_db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "_test.db")
-    if os.path.exists(test_db):
-        try: os.remove(test_db)
-    
+    try:
+        if os.path.exists(test_db):
+            os.remove(test_db)
+    except Exception:
+        pass
+
     # Ensure data dir exists (CI may not have it)
     os.makedirs(os.path.dirname(test_db), exist_ok=True)
-        except: pass
 
 
 @pytest.fixture

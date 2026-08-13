@@ -307,6 +307,143 @@ async def get_free_stock_photos(
         raise HTTPException(status_code=502, detail="Cannot connect to free photo service. Please check your network.")
 
 
+# ── External Stock Photos: Unsplash & Pexels ─────────────────────────
+
+@router.get("/unsplash/search")
+async def search_unsplash_photos(
+    q: str = Query(..., min_length=1, description="Search keyword (English recommended)"),
+    page: int = Query(1, ge=1, le=100),
+    per_page: int = Query(12, ge=1, le=30),
+):
+    """Search free photos on Unsplash (requires UNSPLASH_API_KEY in .env)."""
+    if not settings.UNSPLASH_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="请在 .env 配置 UNSPLASH_API_KEY（注册 https://unsplash.com/developers 免费获取）",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            resp = await client.get(
+                "https://api.unsplash.com/search/photos",
+                params={"query": q, "page": page, "per_page": per_page},
+                headers={"Authorization": f"Client-ID {settings.UNSPLASH_API_KEY}"},
+            )
+            if resp.status_code != 200:
+                logger.warning("Unsplash API error %s: %s", resp.status_code, resp.text[:300])
+                raise HTTPException(status_code=502, detail=f"Unsplash 服务暂时不可用 (HTTP {resp.status_code})")
+
+            data = resp.json()
+            results = []
+            for p in data.get("results", []):
+                urls = p.get("urls") or {}
+                user = p.get("user") or {}
+                results.append({
+                    "id": str(p.get("id", "")),
+                    "description": p.get("description") or p.get("alt_description") or "",
+                    "width": p.get("width", 0),
+                    "height": p.get("height", 0),
+                    "url": urls.get("regular") or urls.get("raw") or "",
+                    "thumbnail": urls.get("thumb") or urls.get("small") or "",
+                    "download_url": urls.get("raw") or urls.get("regular") or "",
+                    "author": user.get("name") or "Unknown",
+                })
+
+            return {
+                "photos": results,
+                "source": "Unsplash",
+                "total": data.get("total", len(results)),
+                "page": page,
+            }
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Cannot connect to Unsplash. Please check your network.")
+
+
+@router.get("/pexels/search")
+async def search_pexels(
+    q: str = Query(..., min_length=1, description="Search keyword (English recommended)"),
+    page: int = Query(1, ge=1, le=100),
+    per_page: int = Query(12, ge=1, le=80),
+    type: str = Query("photos", pattern="^(photos|videos)$", description="photos | videos"),
+):
+    """Search free photos/videos on Pexels (requires PEXELS_API_KEY in .env)."""
+    if not settings.PEXELS_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="请在 .env 配置 PEXELS_API_KEY（注册 https://www.pexels.com/api 免费获取）",
+        )
+
+    is_videos = type == "videos"
+    endpoint = "https://api.pexels.com/videos/search" if is_videos else "https://api.pexels.com/v1/search"
+
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            resp = await client.get(
+                endpoint,
+                params={"query": q, "page": page, "per_page": per_page},
+                headers={"Authorization": settings.PEXELS_API_KEY},
+            )
+            if resp.status_code != 200:
+                logger.warning("Pexels API error %s: %s", resp.status_code, resp.text[:300])
+                raise HTTPException(status_code=502, detail=f"Pexels 服务暂时不可用 (HTTP {resp.status_code})")
+
+            data = resp.json()
+
+            if is_videos:
+                videos = []
+                for v in data.get("videos", []):
+                    files = v.get("video_files") or []
+
+                    def _file_score(f: dict) -> tuple:
+                        quality = (f.get("quality") or "").lower()
+                        qs = {"uhd": 5, "hd": 4, "sd": 3}
+                        return (qs.get(quality, 2), (f.get("width") or 0) * (f.get("height") or 0))
+
+                    best = sorted(files, key=_file_score, reverse=True)[0] if files else {}
+                    pictures = v.get("video_pictures") or []
+                    user = v.get("user") or {}
+                    videos.append({
+                        "id": str(v.get("id", "")),
+                        "url": v.get("url") or "",
+                        "thumbnail": pictures[0].get("picture") if pictures else "",
+                        "download_url": best.get("link") or "",
+                        "width": best.get("width") or 0,
+                        "height": best.get("height") or 0,
+                        "duration": v.get("duration") or 0,
+                        "author": user.get("name") or "Unknown",
+                    })
+
+                return {
+                    "videos": videos,
+                    "source": "Pexels",
+                    "total": data.get("total_results", len(videos)),
+                    "page": page,
+                }
+
+            photos = []
+            for p in data.get("photos", []):
+                src = p.get("src") or {}
+                photos.append({
+                    "id": str(p.get("id", "")),
+                    "description": p.get("alt") or "",
+                    "width": p.get("width", 0),
+                    "height": p.get("height", 0),
+                    "url": src.get("large") or src.get("medium") or src.get("original") or "",
+                    "thumbnail": src.get("medium") or src.get("small") or src.get("large") or "",
+                    "download_url": src.get("original") or src.get("large2x") or src.get("large") or "",
+                    "author": p.get("photographer") or "Unknown",
+                })
+
+            return {
+                "photos": photos,
+                "source": "Pexels",
+                "total": data.get("total_results", len(photos)),
+                "page": page,
+            }
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Cannot connect to Pexels. Please check your network.")
+
+
 # ── Import from URL ─────────────────────────────────────────────────
 
 class ImportFromUrlRequest(BaseModel):
@@ -332,7 +469,8 @@ async def import_asset_from_url(
 
     ext = os.path.splitext(safe_name)[1].lower()
     mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-                ".gif": "image/gif", ".webp": "image/webp"}
+                ".gif": "image/gif", ".webp": "image/webp",
+                ".mp4": "video/mp4", ".mov": "video/mov"}
     file_type = mime_map.get(ext, "image/jpeg")
 
     try:

@@ -24,7 +24,7 @@
       </div>
 
       <!-- Loss + LR Charts -->
-      <div class="charts-row">
+      <div class="charts-row" :class="{single: !task.lr_history}">
         <div class="section-card" v-if="task.loss_history">
           <h3>📉 训练 Loss 曲线</h3>
           <div class="loss-chart-container">
@@ -351,15 +351,16 @@ onMounted(async()=>{
 
 /* Charts row (Loss + LR) */
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.charts-row .section-card{margin-bottom:20px}
+.charts-row.single{grid-template-columns:1fr}
+.charts-row .section-card{margin-bottom:20px;min-width:0}
 @media (max-width:900px){.charts-row{grid-template-columns:1fr}}
 .chart-sub{font-size:12px;color:#94a3b8;font-weight:500}
 
 /* Loss chart */
 .loss-chart-container{margin-bottom:16px}
-.loss-chart{display:flex;align-items:flex-end;gap:1px;height:120px;background:#f8fafc;border-radius:12px;padding:12px 16px}
-.loss-bar{width:4px;background:linear-gradient(180deg,#f59e0b,#d97706);border-radius:2px;min-height:1px;flex-shrink:0;transition:opacity .3s}
-.lr-bar{width:4px;background:linear-gradient(180deg,#8b5cf6,#6d28d9);border-radius:2px;min-height:1px;flex-shrink:0}
+.loss-chart{display:flex;align-items:flex-end;gap:1px;height:120px;background:#f8fafc;border-radius:12px;padding:12px 16px;overflow-x:auto}
+.loss-bar{flex:1 1 auto;min-width:1px;max-width:6px;background:linear-gradient(180deg,#f59e0b,#d97706);border-radius:2px;min-height:1px;transition:opacity .3s}
+.lr-bar{flex:1 1 auto;min-width:1px;max-width:6px;background:linear-gradient(180deg,#8b5cf6,#6d28d9);border-radius:2px;min-height:1px}
 .loss-axis{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:6px}
 .loss-stats{display:flex;gap:12px}
 .ls-item{flex:1;text-align:center;padding:12px;background:#f8fafc;border-radius:10px}

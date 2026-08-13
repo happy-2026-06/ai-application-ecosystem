@@ -5,6 +5,7 @@ from httpx import AsyncClient, ASGITransport
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./data/_test.db"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["DEBUG"] = "false"
+os.environ["ADMIN_PASSWORD"] = "123456"  # override .env to keep tests self-contained (matches CI)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -44,12 +45,14 @@ async def client():
     from app.db.session import engine
     await engine.dispose()
     test_db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "_test.db")
-    if os.path.exists(test_db):
-        try: os.remove(test_db)
-    
+    try:
+        if os.path.exists(test_db):
+            os.remove(test_db)
+    except Exception:
+        pass
+
     # Ensure data dir exists (CI may not have it)
     os.makedirs(os.path.dirname(test_db), exist_ok=True)
-        except: pass
 
 
 @pytest.fixture

@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
+    # ── External Stock Photo APIs (Unsplash / Pexels) ────────────────
+    # Free to obtain: https://unsplash.com/developers and https://www.pexels.com/api
+    UNSPLASH_API_KEY: str = ""
+    PEXELS_API_KEY: str = ""
+
     # ── LLM Fallback (Ollama) ─────────────────────────────────────────
     OLLAMA_LLM_MODEL: str = "qwen2.5:7b"
 

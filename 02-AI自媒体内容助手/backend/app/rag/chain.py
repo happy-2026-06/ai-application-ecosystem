@@ -15,6 +15,7 @@ from langchain_deepseek import ChatDeepSeek
 
 from app.config import settings
 from app.rag.prompts import RAG_SYSTEM_PROMPT
+from app.rag.multi_provider import MultiProviderLLM, build_providers_from_keys
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,34 @@ def get_llm():
         raise
 
 
+def get_llm_with_failover():
+    """Get the primary LLM or fall back to multi-provider when DeepSeek is unavailable.
+
+    Priority:
+      1. Custom fine-tuned model proxy (CUSTOM_LLM_URL set)
+      2. ChatDeepSeek (DEEPSEEK_API_KEY set)
+      3. MultiProviderLLM (Zhipu GLM / DashScope Qwen keys)
+
+    Raises ValueError when no AI provider key is configured at all.
+    """
+    try:
+        return get_llm()
+    except Exception as e:
+        logger.warning("Primary LLM unavailable, building fallback: %s", e)
+
+    providers = build_providers_from_keys(settings.ZHIPU_API_KEY, settings.DASHSCOPE_API_KEY)
+    if not providers:
+        raise ValueError(
+            "No AI provider configured. Set DEEPSEEK_API_KEY, ZHIPU_API_KEY or "
+            "DASHSCOPE_API_KEY in .env file."
+        )
+    logger.warning(
+        "Using multi-provider fallback LLM: %s",
+        ", ".join(p["name"] for p in providers),
+    )
+    return MultiProviderLLM(providers=providers)
+
+
 def get_rag_chain():
     """Get or create the RAG chain using LCEL (LangChain Expression Language).
 
@@ -121,7 +150,7 @@ def get_rag_chain():
     if _chain is not None:
         return _chain
 
-    llm = get_llm()
+    llm = get_llm_with_failover()
     system_prompt = SystemMessagePromptTemplate.from_template(RAG_SYSTEM_PROMPT)
     human_prompt = HumanMessagePromptTemplate.from_template(
         "请根据以上规则和参考信息回答用户问题。"
