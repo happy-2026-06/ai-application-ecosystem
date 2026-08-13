@@ -9,44 +9,43 @@ A collection of 8 AI-powered full-stack applications built with **Vue 3 + FastAP
 | ① | RAG Customer Service | C-end | Enterprise knowledge-base Q&A for e-commerce |
 | ② | AI Content Assistant | C-end | Viral titles, video scripts, social media copywriting |
 | ③ | Short Video Script Studio | C-end | Storyboard scripts, TTS voiceover, subtitle export |
-| ④ | Digital Asset Management | B-end | Asset upload, AI auto-tagging, multimodal search |
+| ④ | Digital Asset Management | B-end | Asset upload, AI auto-tagging, image search |
 | ⑤ | Sales Training System | B-end | AI role-play customer scenarios, multi-dimension scoring |
 | ⑥ | Data Center Platform | Middle-platform | Data ingestion, cleaning, annotation, quality reports |
 | ⑦ | Multi-Agent Collaboration | Middle-platform | Multi-agent task orchestration with SSE streaming |
-| ⑧ | Model Fine-Tuning Platform | Middle-platform | QLoRA fine-tuning, A/B comparison, one-click deployment |
+| ⑧ | Model Fine-Tuning Platform | Middle-platform | QLoRA fine-tuning, A/B comparison, model deployment |
 
 ## Tech Stack
 
 - **Frontend**: Vue 3 + TypeScript + Naive UI + Pinia + Vite
 - **Backend**: Python FastAPI + SQLAlchemy 2.0 (async)
 - **AI**: LangChain + DeepSeek API + ChromaDB
-- **Data**: SQLite (dev) / PostgreSQL (production) + Redis
-- **Deploy**: Docker Compose + Nginx
+- **Data**: SQLite (WAL mode, dev)
+- **Cross-project**: X-Internal-Call shared-secret data flywheel
 
-## Quick Start
+## Quick Start (Local Dev)
 
 ### Prerequisites
 
-- Docker & Docker Compose
+- Python 3.11+
+- Node.js 18+
 - DeepSeek API Key ([get one here](https://platform.deepseek.com/api_keys))
 
-### Launch All Projects
+### Launch All Backends
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd <repo-directory>
-
-# 2. Configure environment for each project
-# Copy .env.example to .env in each backend directory and add your API key:
+# 1. Configure API keys for each project (files are git-ignored)
+#    Each backend/.env already contains the key locally.
+#    For a fresh clone, copy .env.example to .env and add your key:
 #   01-RAG智能客服系统/backend/.env.example → .env
-#   02-AI自媒体内容助手/backend/.env.example → .env
 #   ... (repeat for all 8 projects)
 
-# 3. Start all services
-docker compose up -d --build
+# 2. One-click start all 8 backends (Windows)
+start-all-backends.bat
 
-# 4. Access the apps
+# Or start a single project
+cd 01-RAG智能客服系统
+start.bat
 ```
 
 ### Port Mapping
@@ -55,8 +54,8 @@ docker compose up -d --build
 |---------|:------:|:--------:|
 | ① RAG Customer Service | 8101 | 3001 |
 | ② Content Assistant | 8202 | 3002 |
-| ③ Script Studio | 8303 | 3003 |
-| ④ Asset Management | 8404 | 3004 |
+| ③ Script Studio | 8000 | 3000 |
+| ④ Asset Management | 8400 | 3004 |
 | ⑤ Sales Training | 8505 | 3005 |
 | ⑥ Data Center | 8606 | 3006 |
 | ⑦ Multi-Agent | 8707 | 3007 |
@@ -64,16 +63,13 @@ docker compose up -d --build
 
 ### Run a Single Project (Dev Mode)
 
-Each project has its own `start.bat` for local development:
-
 ```bash
 # Example: Project ① RAG Customer Service
 cd 01-RAG智能客服系统
-# Run start.bat (Windows) or:
 # Terminal 1 - Backend
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8101
+cd backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8101
 # Terminal 2 - Frontend
-cd frontend && npm install && npm run dev
+cd frontend && npm run dev
 ```
 
 ## Project Structure
@@ -89,30 +85,16 @@ ai-applications/
 ├── 07-MCP多智能体协作平台/      # Multi-Agent Platform
 ├── 08-AI模型微调训练平台/       # Fine-Tuning Platform
 ├── shared/                     # Shared libraries (data hub, action registry)
-├── postgres/                   # PostgreSQL init scripts
-├── docker-compose.yml          # Unified Docker Compose
-├── pyproject.toml              # Python linting config (ruff)
-├── .eslintrc.json              # Frontend linting config
-├── check-all.sh                # One-click code review script
-└── run-stress-test.sh          # Stress testing script
+├── start-all-backends.bat      # One-click start for all 8 backends
+└── CHANGELOG.md                # Interview manual (bug stories & architecture)
 ```
 
 ## Code Quality
 
-- **Python**: ruff formatting & linting (`pyproject.toml`)
-- **Frontend**: ESLint + Vue 3 recommended rules (`.eslintrc.json`)
-- **Pre-commit**: automated checks via `.pre-commit-config.yaml`
-- **CI**: GitHub Actions workflow (`.github/workflows/ci.yml`)
-- **Tests**: pytest for backend (8/8 projects)
+- **Tests**: pytest for backend (all 8 projects, 10/10 passing each)
+- **Type check**: vue-tsc for frontend (all 8 projects, 0 errors)
 - **Load testing**: Locust scripts in each project's `backend/tests/`
-
-```bash
-# Run all checks
-./check-all.sh
-
-# Run stress tests
-./run-stress-test.sh all --users=50 --run-time=3m
-```
+- **CI**: GitHub Actions workflow (`.github/workflows/ci.yml`)
 
 ## Architecture
 
@@ -131,7 +113,6 @@ project/
 │   │   └── main.py       # App entry point
 │   ├── tests/            # pytest + locust
 │   ├── .env.example      # Environment template
-│   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -140,7 +121,6 @@ project/
 │   │   ├── api/          # API client modules
 │   │   ├── router/       # Vue Router config
 │   │   └── assets/       # Styles, images
-│   ├── Dockerfile
 │   └── package.json
 ├── sample-data/           # Demo knowledge base / data
 └── README.md
@@ -150,10 +130,17 @@ project/
 
 Projects are designed to work together in an AI ecosystem:
 
-1. **Data Flywheel** — ①⑤ → ⑥ → ⑧: customer service & training data feeds into the Data Center for cleaning and annotation, then exports to the Fine-Tuning Platform to train custom models
-2. **Asset Sharing** — ④ → ②③: managed digital assets are publicly searchable for content creation
-3. **Agent Orchestration** — ⑦ → ①②③④⑤⑥⑧: the Multi-Agent Platform routes tasks to other systems via keyword matching
-4. **Model Deployment** — ⑧ → ①②③⑤: fine-tuned models are deployed as inference APIs for other projects
+```
+① 客服对话 ──┐
+⑤ 话术训练 ──┤──→ ⑥ 数据中心 ──→ ⑧ 模型微调 ──→ 微调模型服务
+④ 素材标签 ──┘        ↑                        │
+                      └── 训练数据缓存/导出 ←────┘
+⑦ 运营引擎 ←──调用──→ ①②③④⑤⑥⑧ (action_registry)
+```
+
+1. **Data Flywheel** — ①⑤④ push conversation/training/tag data to ⑥ via `X-Internal-Call` shared-secret auth; ⑥ cleans & annotates, then exports to ⑧ for fine-tuning
+2. **Agent Orchestration** — ⑦ routes tasks to other systems via action registry (Docker service names + localhost fallback)
+3. **Model Deployment** — ⑧'s deployed models are discoverable via `/models/active` for other projects
 
 ## Configuration
 

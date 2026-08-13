@@ -49,11 +49,11 @@ async def lifespan(app: FastAPI):
 
     # Security warning on startup if dev defaults are in use
     if "change-me" in settings.SECRET_KEY or "change-me" in settings.JWT_SECRET_KEY:
-        print("[WARN] ⚠️  使用了开发环境密钥默认值！生产环境请设置环境变量。")
+        print("[WARN] !!  使用了开发环境密钥默认值！生产环境请设置环境变量。")
     # Security warning on startup if admin password is a common weak default
     weak_passwords = {"admin123", "123456", "password", "admin", "changeme"}
     if settings.ADMIN_PASSWORD in weak_passwords:
-        print("[WARN] ⚠️  管理员密码为弱密码默认值，请登录后立即修改！")
+        print("[WARN] !!  管理员密码为弱密码默认值，请登录后立即修改！")
 
     print(f"[OK] {settings.APP_NAME} v{settings.APP_VERSION} started")
     yield
