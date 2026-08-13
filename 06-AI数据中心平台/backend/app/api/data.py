@@ -460,7 +460,7 @@ async def external_ingest(
 @router.get("/datasets/{dataset_id}/export-for-finetune")
 async def export_for_finetune(
     dataset_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(internal_call_or_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Export dataset in finetune-ready format with structured labels.
